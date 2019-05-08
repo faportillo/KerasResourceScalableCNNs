@@ -1,0 +1,6 @@
+*.pyc
+*.txt
+*.tar
+logs*
+*logs*
+weights*

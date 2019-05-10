@@ -1198,7 +1198,9 @@ class SaveWeightsNumpy(Callback):
             np.save(self.file_path, weights)
             if local_acc >= 0.7:
                 print("Has high local acc. Saving weights now")
-                np.save('loc_' + self.file_path, weights)
+                filepath = self.file_path.split('.')
+                loc_filepath = filepath[:-1] + "_loc." + filepath[-1]
+                np.save(loc_filepath, weights)
 
             if round(local_acc, 3) >= 0.770 and self.finetuning:
                 # Stop finetuning if local accuracy meets or exceeds unpruned value for this

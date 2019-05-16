@@ -24,6 +24,17 @@ from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.metrics import top_k_categorical_accuracy,categorical_accuracy
 from google_csn_keras import google_csn, focal_loss
 
+
+'''
+    ToDo: 
+    - Need to have methods to evaluate local and global accuracy during
+      inference. 
+    
+    - Need to have method that accepts model and prunes it based on desired 
+      percent error or parameter count *Check Song Han paper to see how they
+      determined stop to pruning.
+'''
+
 def remove_channels(model, layer, channel_list):
     '''
     USED FOR PRUNING weights on a specific layer
@@ -54,7 +65,7 @@ def prune_by_std(model, s=0.25):
     :param s: Sensitivity factor
     :return: model with pruned weights
     """
-
+    total_pruned_weights = 0
     layer_num = 0
     for layer in model.layers:
         if ('Conv2D' in layer.__class__.__name__ or 'Dense' in layer.__class__.__name__)\
@@ -68,7 +79,13 @@ def prune_by_std(model, s=0.25):
             pruned_weights = [np.multiply(weights_mask, layer_weights),
                               np.multiply(bias_mask, layer_biases)]
             model.layers[layer_num].set_weights(pruned_weights)
+            total_pruned_weights += np.count_nonzero(weights_mask == 0)
+            total_pruned_weights += np.count_nonzero(bias_mask == 0)
 
         layer_num+=1
 
-    return model
+    return model, total_pruned_weights
+
+def prune_iteration(model, p_weights_path, sensitivity=0.25)
+    initial_acc =
+

@@ -1202,11 +1202,11 @@ class SaveWeightsNumpy(Callback):
                 loc_filepath = filepath[:-1] + "_loc." + filepath[-1]
                 np.save(loc_filepath, weights)
 
-            if round(local_acc, 3) >= 0.770 and self.finetuning:
+            '''if round(local_acc, 3) >= 0.770 and self.finetuning:
                 # Stop finetuning if local accuracy meets or exceeds unpruned value for this
                 # number of classes
                 self.model.stop_training = True
         change_garbage_class_folder(self.selected_classes, self.wnid_labels, self.orig_train_img_path,
-                                    self.new_training_path)
+                                    self.new_training_path)'''
 
 

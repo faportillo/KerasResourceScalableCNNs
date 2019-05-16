@@ -50,6 +50,10 @@ def main():
     ofms = [15, 15, 44, 15, 22, 4, 29, 7, 7, 29, 29, 7, 44, 22, 15, 44, 22, 4, 48, 11,
             15, 37, 26, 6, 51, 15, 15, 29, 29, 6, 59, 15, 15, 26, 33, 7, 66, 15, 15, 59,
             37, 7, 74, 29, 29, 59, 37, 7, 74, 29, 29, 88, 44, 11, 88, 29, 29, 5]
+    with open(model_path + '/ofms.txt', 'w') as f:
+        for ofm in ofms:
+            print >> f, ofm
+
     num_classes = ofms[57]  # number of classes
     first_class = 0
     last_class = 49

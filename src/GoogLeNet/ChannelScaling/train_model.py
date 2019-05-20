@@ -14,6 +14,7 @@ import os.path as path
 p = path.abspath(path.join(__file__, "../../../.."))
 sys.path.append(p)
 import src.train_utils as tu
+from rs_net_ch import rs_net_ch
 
 from tensorflow.python.keras.optimizers import Adam, RMSprop
 from tensorflow.python.keras.backend import int_shape
@@ -51,7 +52,7 @@ def main():
             37, 7, 74, 29, 29, 59, 37, 7, 74, 29, 29, 88, 44, 11, 88, 29, 29, 10]
     with open(model_path + '/ofms.txt', 'w') as f:
         for ofm in ofms:
-            print >> f, ofm
+            f.write("%s\n" % ofm)
 
     num_classes = ofms[57]  # number of classes
     first_class = 0

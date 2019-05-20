@@ -19,6 +19,7 @@ from tensorflow.python.keras.metrics import top_k_categorical_accuracy, \
     categorical_accuracy
 from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint, \
     Callback, LearningRateScheduler, TerminateOnNaN
+from tensorflow.python.ops import clip_ops
 
 # from model_shell import google_csn
 
@@ -1239,7 +1240,7 @@ class SaveWeightsNumpy(Callback):
             if local_acc >= 0.7:
                 print("Has high local acc. Saving weights now")
                 filepath = self.file_path.split('.')
-                loc_filepath = filepath[:-1] + "_loc." + filepath[-1]
+                loc_filepath = str(filepath[:-1]) + "_loc." + str(filepath[-1])
                 np.save(loc_filepath, weights)
 
             '''if round(local_acc, 3) >= 0.770 and self.finetuning:

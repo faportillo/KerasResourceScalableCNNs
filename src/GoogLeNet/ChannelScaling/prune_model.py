@@ -13,8 +13,12 @@ import os
 import os.path as path
 p = path.abspath(path.join(__file__, "../../../.."))
 sys.path.append(p)
+p = path.abspath(path.join(__file__, "../../.."))
+sys.path.append(p)
 import src.train_utils as tu
-from rs_net_ch import rs_net_ch, focal_loss
+import src.prune_utils as pu
+import src.eval_utils as eu
+import src.GoogLeNet.VanillaGoogLeNet.googlenet as vgn
 
 from tensorflow.python.keras.optimizers import Adam, RMSprop
 from tensorflow.python.keras.backend import int_shape
@@ -25,6 +29,9 @@ from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint, Lear
 from tensorflow.python.keras.utils import multi_gpu_model
 from tensorflow.python.keras import backend as K
 from tensorflow.python.ops import clip_ops
+
+import tensorflow_model_optimization as tfmot
+from tensorflow_model_optimization.sparsity import keras as sparsity
 
 # Mahya
 IMAGENET_PATH = '/HD1/'
@@ -43,18 +50,54 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5'''
 
 def main():
-    model_path = './L5_linear/'
+    model_path = '../VanillaGoogLeNet'
+    model_type = 'googlenet'
 
-    # Load ofms list from .txt file
-    ofms = []
-    with open(model_path + '/ofms.txt') as f:
-        for line in f:
-            ofm = line[:-1]
-            ofms.append(ofm)
+    if model_type == 'resource_scalable':
+        # Load ofms list from .txt file
+        ofms = []
+        with open(model_path + '/ofms.txt') as f:
+            for line in f:
+                ofm = line[:-1]
+                ofms.append(ofm)
+        model = rs_net_ch(num_classes=num_classes, ofms=ofms)
+        model = tu.load_model_npy(model, model_path + '/weights.npy')
+    elif model_type == 'googlenet':
+        model = vgn.create_googlenet(model_path + '/googlenet_weights.h5')
 
+    epochs = 64
 
+    pruned_model = pu.prune_model(model, imagenet_path=IMAGENET_PATH,
+                                  train_path=TRAIN_PATH,
+                                  val_path=VAL_2_PATH,
+                                  meta_path=META_FILE,
+                                  tb_logpath=model_path+"/logs",
+                                  config_path=CONFIG_PATH,
+                                  num_epochs=epochs)
 
+    local_accuracy = eu.get_local_accuracy(pruned_model, IMAGENET_PATH,
+                                           VAL_2_PATH, model_path + '/selected_dirs.txt')
+    global_acc, raw_acc = eu.get_global_accuracy(pruned_model, num_classes, IMAGENET_PATH,
+                                                 VAL_2_PATH, META_FILE,
+                                                 model_path + '/selected_dirs.txt',
+                                                 raw_acc=True)
 
+    # Write pruned model summary to txt file
+    orig_stdout = sys.stdout
+    f = open('pruned_model_summary.txt', 'w')
+    sys.stdout = f
+    print(pruned_model.summary())
+    sys.stdout = orig_stdout
+    f.close()
+
+    print("\nRaw Accuracy: " + str(raw_acc))
+    print("Local Accuracy: " + str(local_accuracy))
+    print("Global Accuracy: " + str(global_acc))
+    print("\nWriting results to file...")
+    with open(model_path + '/prune_model_accuracy.txt', 'w') as f:
+        f.write('Local Accuracy: %d' % local_accuracy)
+        f.write('Global Accuracy: %d' % global_acc)
+        f.write('Raw Accuracy: %d' % raw_acc)
 
 if __name__ == '__main__':
     main()

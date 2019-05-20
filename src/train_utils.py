@@ -31,6 +31,37 @@ SHEAR_RANGE = 0.2
 HORIZONTAL_FLIP = True
 VALIDATION_BATCH_SIZE = 32
 
+def focal_loss(gamma=2., alpha=.25):
+  def mtmd_nl(target, output, from_logits=False, axis=-1):
+    rank = len(output.shape)
+    axis = axis % rank
+    output = output / K.sum(output, axis, True)
+    #epsilon_ = K._to_tensor(epsilon(), output.dtype.base_dtype)
+    epsilon_ = tf.ones_like(output) * K.epsilon();
+    output = clip_ops.clip_by_value(output, epsilon_, 1. - epsilon_)
+    return -K.sum(target * K.pow((1 - output), gamma) * K.log(output), axis)
+  return mtmd_nl
+
+def dual_loss(gamma=2, alpha=.25):
+    '''
+        Dual Loss = Loss_Global + Loss_Local
+                  = Focal_Loss + (y==1)*Cross_Entropy_Loss
+    '''
+    def mtmd_dl(target, output, axis=-1):
+        rank = len(output.shape)
+        axis = axis % rank
+        output = output / K.sum(output, axis, True)
+        # epsilon_ = K._to_tensor(epsilon(), output.dtype.base_dtype)
+        epsilon_ = tf.ones_like(output) * K.epsilon();
+        output = clip_ops.clip_by_value(output, epsilon_, 1. - epsilon_)
+        global_loss = -K.sum(target * K.pow((1 - output), gamma) * K.log(output), axis)
+        argmax_true = K.argmax(y_true, axis=-1)
+        where_true = K.not_equal(argmax_true, zero)
+        local_loss = where_true * K.categorical_crossentropy(target, output)
+        return global_loss + local_loss
+
+    return mtmd_dl
+
 def global_accuracy(y_true, y_pred):
     '''
     Assumes garbage class has a '0' label
@@ -114,7 +145,7 @@ def imagenet_generator(train_data_path, val_data_path, batch_size, do_augment, \
 
 
 def imagenet_generator_multi(train_data_path, val_data_path, batch_size, do_augment, \
-                             val_batch_size=VALIDATION_BATCH_SIZE):
+                             val_batch_size=VALIDATION_BATCH_SIZE, num_outputs=2):
     '''
         For use with auxiliary classifiers or mutliple outputs
         train_data_path: Path for ImageNet Training Directory
@@ -162,8 +193,12 @@ def imagenet_generator_multi(train_data_path, val_data_path, batch_size, do_augm
         batch_size=val_batch_size, shuffle=True, \
         class_mode='categorical', \
         follow_links=True)
-    multi_train_generator = create_multi_generator(train_generator)
-    multi_validation_generator = create_multi_generator(validation_generator)
+    if num_outputs == 2:
+        multi_train_generator = create_multi_generator(train_generator)
+        multi_validation_generator = create_multi_generator(validation_generator)
+    else:
+        multi_train_generator = create_multi_generator_3(train_generator)
+        multi_validation_generator = create_multi_generator_3(validation_generator)
     return multi_train_generator, multi_validation_generator
 
 
@@ -171,6 +206,11 @@ def create_multi_generator(data_generator):
     while (True):
         data_imgs, data_l = next(data_generator)
         yield [data_imgs], [data_l, data_l]
+
+def create_multi_generator_3(data_generator):
+    while (True):
+        data_imgs, data_l = next(data_generator)
+        yield [data_imgs], [data_l, data_l, data_l]
 
 
 def fit_model(model, num_classes, first_class, last_class, batch_size, op_type=None, \

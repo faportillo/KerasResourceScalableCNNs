@@ -4,3 +4,4 @@
 logs*
 *logs*
 weights*
+*.h5

@@ -58,7 +58,7 @@ def main():
 
     # Create model
     model = rs_net_ch(num_classes=num_classes, ofms=ofms)
-    model = tu.load_model_npy(g_csn, 'weights.npy')
+    model = tu.load_model_npy(model, 'weights.npy')
 
     #Get raw, local, and global accuracy
     local_accuracy = eu.get_local_accuracy(model, IMAGENET_PATH,

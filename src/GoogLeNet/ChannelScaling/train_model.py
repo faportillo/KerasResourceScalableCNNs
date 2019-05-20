@@ -14,7 +14,6 @@ import os.path as path
 p = path.abspath(path.join(__file__, "../../../.."))
 sys.path.append(p)
 import src.train_utils as tu
-from rs_net_ch import rs_net_ch, focal_loss
 
 from tensorflow.python.keras.optimizers import Adam, RMSprop
 from tensorflow.python.keras.backend import int_shape
@@ -68,8 +67,8 @@ def main():
     # g_csn.compile(optimizer=adam, loss=[focal_loss(alpha=.25, gamma=2),
     # focal_loss(alpha=.25, gamma=2)], metrics=[categorical_accuracy],loss_weights=[1.0,0.3])
 
-    g_csn.compile(optimizer=adam, loss=[focal_loss(alpha=.25, gamma=2),
-                                        focal_loss(alpha=.25, gamma=2)],
+    g_csn.compile(optimizer=adam, loss=[tu.focal_loss(alpha=.25, gamma=2),
+                                        tu.focal_loss(alpha=.25, gamma=2)],
                   metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy],
                   loss_weights=[1.0, 0.3])
     if load_weights is True:

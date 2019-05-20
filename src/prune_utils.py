@@ -5,6 +5,7 @@ sys.path.append("..")
 import tensorflow as tf
 import numpy as np
 import train_utils as tu
+import eval_utils as eu
 
 import os
 import math
@@ -22,8 +23,9 @@ from tensorflow.python.keras.models import Model, save_model, load_model
 from tensorflow.python.keras.optimizers import Adam, RMSprop
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.metrics import top_k_categorical_accuracy,categorical_accuracy
-from google_csn_keras import google_csn, focal_loss
 
+import tensorflow_model_optimization as tfmot
+from tensorflow_model_optimization.sparsity import keras as sparsity
 
 '''
     ToDo: 
@@ -57,14 +59,7 @@ def remove_channels(model, layer, channel_list):
     return model
 
 def prune_by_std(model, s=0.25):
-    """
-    According to https://arxiv.org/pdf/1506.02626.pdf
-    (Learning both Weights and Connections for Efficient Neural Networks),
-    'The pruning threshold is chosen as a quality parameter multiplied
-    by the standard deviation of a layer’s weights'
-    :param s: Sensitivity factor
-    :return: model with pruned weights
-    """
+
     total_pruned_weights = 0
     layer_num = 0
     for layer in model.layers:
@@ -86,6 +81,126 @@ def prune_by_std(model, s=0.25):
 
     return model, total_pruned_weights
 
-def prune_iteration(model, p_weights_path, sensitivity=0.25)
-    initial_acc =
+def prune_model(model, model_type='resource_scalable', num_classes=1000, batch_size=64, val_batch_size=50, loss_type='focal', op_type='adam',
+                imagenet_path=None, model_path='./',
+                train_path=None, val_path=None, tb_logpath='./logs',
+                meta_path=None, num_epochs=1000):
+
+    '''
+        Prune a resource-scalable model
+
+    :param model:
+    :param model_type: sees if its resource scalable model or a given Keras default model
+    :param num_classes:
+    :param batch_size:
+    :param val_batch_size:
+    :param loss_type:
+    :param op_type:
+    :param imagenet_path:
+    :param model_path:
+    :param train_path:
+    :param val_path:
+    :param tb_logpath:
+    :param meta_path:
+    :param num_epochs:
+    :return:
+    '''
+    orig_train_img_path = os.path.join(imagenet_path, train_path)
+    orig_val_img_path = os.path.join(imagenet_path, val_path)
+    train_img_path = orig_train_img_path
+    val_img_path = orig_val_img_path
+    wnid_labels, _ = tu.load_imagenet_meta(os.path.join(imagenet_path, \
+                                                     meta_path))
+    new_training_path = os.path.join(imagenet_path, "GARBAGE_TRAIN_")
+    new_validation_path = os.path.join(imagenet_path, "GARBAGE_VAL_")
+    selected_classes = tu.create_garbage_links(num_classes, wnid_labels, train_img_path, \
+                                            new_training_path, val_img_path, new_validation_path)
+    tu.create_garbage_class_folder(selected_classes, wnid_labels,
+                                train_img_path, new_training_path,
+                                val_img_path, new_validation_path)
+    train_img_path = new_training_path
+    val_img_path = new_validation_path
+
+    tb_callback = TensorBoard(log_dir=tb_logpath)
+    termNaN_callback = TerminateOnNaN()
+
+    callbacks = [tb_callback, termNaN_callback,
+                 sparsity.UpdatePruningStep(),
+                 sparsity.PruningSummaries(log_dir=logdir, profile_batch=0)]
+
+    if op_type == 'rmsprop':
+        '''
+            If the optimizer type is RMSprop, decay learning rate
+            and append to callback list
+        '''
+        lr_decay_callback = ExpDecayScheduler(decay_params[0], \
+                                              decay_params[1], decay_params[2])
+        callback_list.append(lr_decay_callback)
+    elif op_type == 'adam':
+        print ('Optimizer: Adam')
+    elif op_type == 'sgd':
+        print('Optimizer: SGD')
+        one_cycle = OneCycle(clrcm_params[0], clrcm_params[1], clrcm_params[2], \
+                             clrcm_params[3], clrcm_params[4], clrcm_params[5])
+        callback_list.append(one_cycle)
+    else:
+        # print ('Invalid Optimizer. Exiting...')
+        exit()
+
+    end_step = np.ceil(1.0 * (1300 * num_classes) / batch_size).astype(np.int32) * num_epochs
+    orig_stdout = sys.stdout
+    f = open('orig_model_summary.txt', 'w')
+    sys.stdout = f
+    print(model.summary())
+    sys.stdout = orig_stdout
+    f.close()
+    new_pruning_params = {'pruning_schedule': sparsity.PolynomialDecay(initial_sparsity=0.0,
+                                                                       final_sparsity=0.50,
+                                                                       begin_step=0,
+                                                                       end_step=end_step)}
+
+    pruned_model = sparsity.prune_low_magnitude(model, **new_pruning_params)
+    if model_type == 'resource_scalable':
+        if loss_type == 'focal':
+            loss1 = tu.focal_loss(alpha=.25, gamma=2)
+            loss2 = tu.focal_loss(alpha=.25, gamma=2)
+        else:
+            loss1 = tu.dual_loss(alpha=.25, gamma=2)
+            loss2 = tu.dual_loss(alpha=.25, gamma=2)
+
+        train_data, val_data = imagenet_generator_multi(train_img_path, \
+                                                        val_img_path, batch_size=batch_size, \
+                                                        do_augment=augment)
+
+        pruned_model.compile(optimizer=op_type, loss=[loss1, loss2],
+                      metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy],
+                      loss_weights=[1.0, 0.3])
+
+    elif model_type == 'googlenet':
+        pruned_model.compile(optimizer=op_type,
+                      loss='categorical_crossentropy',
+                      metrics=['accuracy'])
+
+        train_data, val_data = imagenet_generator_multi(train_img_path, \
+                                                        val_img_path, batch_size=batch_size, \
+                                                        do_augment=augment, num_outputs=3)
+    else:
+        pruned_model.compile(optimizer=op_type,
+                             loss='categorical_crossentropy',
+                             metrics=['accuracy'])
+
+        train_data, val_data = imagenet_generator(train_img_path, \
+                                                        val_img_path, batch_size=batch_size, \
+                                                        do_augment=augment)
+
+    pruned_model.fit_generator(train_data, epochs=num_epochs, \
+                        steps_per_epoch=int(num_classes * 1300) / batch_size, \
+                        validation_data=val_data, \
+                        validation_steps= \
+                            int((num_classes * 50) / val_batch_size), \
+                        verbose=1, callbacks=callback_list, workers=20,
+                        use_multiprocessing=True)
+
+    return pruned_model
+
 

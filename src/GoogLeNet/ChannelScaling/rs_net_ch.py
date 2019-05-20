@@ -28,48 +28,16 @@ from tensorflow.python.keras.utils import multi_gpu_model
 from tensorflow.python.keras import backend as K
 from tensorflow.python.ops import clip_ops
 
-
 '''
     DistillNet - GoogLeNet version
     Check the 'Train and Validate Model' Section to modify the model
 '''
-def focal_loss(gamma=2., alpha=.25):
-  def mtmd_nl(target, output, from_logits=False, axis=-1):
-    rank = len(output.shape)
-    axis = axis % rank
-    output = output / K.sum(output, axis, True)
-    #epsilon_ = K._to_tensor(epsilon(), output.dtype.base_dtype)
-    epsilon_ = tf.ones_like(output) * K.epsilon();
-    output = clip_ops.clip_by_value(output, epsilon_, 1. - epsilon_)
-    return -K.sum(target * K.pow((1 - output), gamma) * K.log(output), axis)
-  return mtmd_nl
-
-def dual_loss(gamma=2, alpha=.25):
-    '''
-        Dual Loss = Loss_Global + Loss_Local
-                  = Focal_Loss + (y==1)*Cross_Entropy_Loss
-    '''
-    def mtmd_dl(target, output, axis=-1):
-        rank = len(output.shape)
-        axis = axis % rank
-        output = output / K.sum(output, axis, True)
-        # epsilon_ = K._to_tensor(epsilon(), output.dtype.base_dtype)
-        epsilon_ = tf.ones_like(output) * K.epsilon();
-        output = clip_ops.clip_by_value(output, epsilon_, 1. - epsilon_)
-        global_loss = -K.sum(target * K.pow((1 - output), gamma) * K.log(output), axis)
-        argmax_true = K.argmax(y_true, axis=-1)
-        where_true = K.not_equal(argmax_true, zero)
-        local_loss = where_true * K.categorical_crossentropy(target, output)
-        return global_loss + local_loss
-
-    return mtmd_dl
 
 '''
     Local Response Norm 
 '''
 def LRN(x):
     return tf.nn.local_response_normalization(x)
-
 
 '''
     Define GoogLeNet Model

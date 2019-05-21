@@ -43,7 +43,7 @@ def LRN(x):
     Define GoogLeNet Model
 '''
 def rs_net_ch(num_classes, ofms):
-    assert len(ofms) == 57, "Number of ofms doesn't match model structure for GoogLeNet"
+    assert len(ofms) == 58, "Number of ofms doesn't match model structure for GoogLeNet"
     '''
         X : input
         num_classes : number of desired classes for training    '''

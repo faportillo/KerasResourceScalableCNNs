@@ -5,3 +5,6 @@ logs*
 *logs*
 weights*
 *.h5
+*gclass*
+*dummy_train*
+*weights*

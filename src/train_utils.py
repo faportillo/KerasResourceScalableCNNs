@@ -268,7 +268,7 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, op_type=N
     '''
 
     termNaN_callback = TerminateOnNaN()
-    save_weights_std_callback = ModelCheckpoint(model_path+'/weights.hdf5', monitor='val_prob_main_categorical_accuracy', verbose=1,
+    save_weights_std_callback = ModelCheckpoint(model_path+'weights.hdf5', monitor='val_prob_main_categorical_accuracy', verbose=1,
                                                 save_best_only=True,
                                                 save_weights_only=False, mode='max', period=1)
     callback_list = [tb_callback, termNaN_callback, save_weights_std_callback]
@@ -321,7 +321,7 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, op_type=N
 
     # print(train_data)
 
-    save_weights_callback = SaveWeightsNumpy(num_classes, model, model_path+'/weights.npy', period=2, selected_classes=
+    save_weights_callback = SaveWeightsNumpy(num_classes, model, model_path, period=2, selected_classes=
     selected_classes, wnid_labels=wnid_labels, orig_train_img_path=orig_train_img_path,
                                              new_training_path=new_training_path, orig_val_img_path=orig_val_img_path,
                                              new_val_path=val_img_path)
@@ -337,7 +337,7 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, op_type=N
                         verbose=1, callbacks=callback_list, workers=20,
                         use_multiprocessing=True)
 
-    save_model(model, model_path+'/rs_model_final.h5')
+    save_model(model, model_path+'rs_model_final.h5')
 
     return model
 
@@ -1236,12 +1236,10 @@ class SaveWeightsNumpy(Callback):
         if epoch % self.period == 0 and epoch >= self.period:
             print("Saving weights to: " + str(self.file_path))
             weights = self.model.get_weights()
-            np.save(self.file_path, weights)
+            np.save(self.file_path + 'weights.npy', weights)
             if local_acc >= 0.7:
                 print("Has high local acc. Saving weights now")
-                filepath = self.file_path.split('.')
-                loc_filepath = str(filepath[:-1]) + "_loc." + str(filepath[-1])
-                np.save(loc_filepath, weights)
+                np.save(self.file_path + 'loc_weights.npy', weights)
 
             '''if round(local_acc, 3) >= 0.770 and self.finetuning:
                 # Stop finetuning if local accuracy meets or exceeds unpruned value for this

@@ -208,8 +208,11 @@ def get_global_accuracy(model, num_classes, imagnenet_path, val_path, meta_file,
             if raw_acc and (np.argmax(pred[0]) == correct_index):
                 correct_raw_imgs += 1
 
-            print("Total: " + str(total_imgs) + ", correct: " + \
-                  str(correct_imgs) + ", GLOBAL ACC:" + str(correct_imgs * 1.0 / total_imgs))
+            print("[Raw] Total: " + str(total_imgs) + ", correct: " + \
+                  str(correct_raw_imgs) + ", GLOBAL ACC:" + str(correct_raw_imgs * 1.0 / total_imgs))
+            print("[Global] Total: " + str(total_imgs) + ", correct: " + \
+                  str(correct_global_imgs) + ", GLOBAL ACC:" + str(correct_global_imgs * 1.0 / total_imgs))
+            print()
     global_acc = correct_global_imgs * 1.0 / total_imgs
     if raw_acc:
         raw_acc = correct_raw_imgs * 1.0 / total_imgs

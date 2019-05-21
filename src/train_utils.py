@@ -766,67 +766,69 @@ def create_garbage_class_folder(selected_classes, wnid_labels,
             continue
         class_list.append(folder)
     # print("Len garbage list: " + str(len(class_list)))
-    train_dst = os.path.join(new_training_path, 'gclass')
-    val_dst = os.path.join(new_val_path, 'gclass')
+    if new_training_path is not '':
+        train_dst = os.path.join(new_training_path, 'gclass')
+        if os.path.exists(train_dst):
+            shutil.rmtree(train_dst)
+        os.makedirs(train_dst)
+        change_garbage_class_folder(selected_classes, wnid_labels, original_training_path, new_training_path)
+    if new_val_path is not '':
+        val_dst = os.path.join(new_val_path, 'gclass')
+        if os.path.exists(val_dst):
+            shutil.rmtree(val_dst)
+        os.makedirs(val_dst)
+        cnt = 0
+        total_valid = 0
+        img_cnt = 0
+        for elem in class_list:
+            cnt += 1
+            # print ("Image: " + str(cnt) + " out of " + str(len(class_list)))
+            # train_src = os.path.join(original_training_path, elem.strip('\n'))
+            val_src = os.path.join(original_val_path, elem.strip('\n'))
+            # train_images = os.listdir(train_src)
+            val_images = os.listdir(val_src)
+            # if cnt < 309:
+            #     img_cnt += 1
+            #     img = train_images[400]
+            #     src_img = os.path.join(train_src, img)
+            #     dst_img = os.path.join(train_dst, str(img_cnt) + '.JPEG')
+            #     os.symlink(src_img, dst_img)
+            # img_cnt += 1
+            # img = train_images[600]
+            # src_img = os.path.join(train_src, img)
+            # dst_img = os.path.join(train_dst, str(img_cnt) + '.JPEG')
+            # os.symlink(src_img, dst_img)
+            # for img in train_images:
+            #    src_img = os.path.join(train_src, img)
+            #    dst_img = os.path.join(train_dst, img)
+            #    os.symlink(src_img, dst_img)
 
-    if os.path.exists(train_dst):
-        shutil.rmtree(train_dst)
-    if os.path.exists(val_dst):
-        shutil.rmtree(val_dst)
-    os.makedirs(train_dst)
-    os.makedirs(val_dst)
+            # if cnt % 10 == 0:
+            #    total_valid += 1
+            #    if total_valid <= 50:
+            #        img = val_images[10] #just random number
+            #        src_img = os.path.join(val_src, img)
+            #        dst_img = os.path.join(val_dst, img)
+            #        os.symlink(src_img, dst_img)
 
-    change_garbage_class_folder(selected_classes, wnid_labels, original_training_path, new_training_path)
-    cnt = 0
-    total_valid = 0
-    img_cnt = 0
-    for elem in class_list:
-        cnt += 1
-        # print ("Image: " + str(cnt) + " out of " + str(len(class_list)))
-        # train_src = os.path.join(original_training_path, elem.strip('\n'))
-        val_src = os.path.join(original_val_path, elem.strip('\n'))
-        # train_images = os.listdir(train_src)
-        val_images = os.listdir(val_src)
-        # if cnt < 309:
-        #     img_cnt += 1
-        #     img = train_images[400]
-        #     src_img = os.path.join(train_src, img)
-        #     dst_img = os.path.join(train_dst, str(img_cnt) + '.JPEG')
-        #     os.symlink(src_img, dst_img)
-        # img_cnt += 1
-        # img = train_images[600]
-        # src_img = os.path.join(train_src, img)
-        # dst_img = os.path.join(train_dst, str(img_cnt) + '.JPEG')
-        # os.symlink(src_img, dst_img)
-        # for img in train_images:
-        #    src_img = os.path.join(train_src, img)
-        #    dst_img = os.path.join(train_dst, img)
-        #    os.symlink(src_img, dst_img)
-
-        # if cnt % 10 == 0:
-        #    total_valid += 1
-        #    if total_valid <= 50:
-        #        img = val_images[10] #just random number
-        #        src_img = os.path.join(val_src, img)
-        #        dst_img = os.path.join(val_dst, img)
-        #        os.symlink(src_img, dst_img)
-
-        for img in val_images:
-            src_img = os.path.join(val_src, img)
-            dst_img = os.path.join(val_dst, img)
-            os.symlink(src_img, dst_img)
+            for img in val_images:
+                src_img = os.path.join(val_src, img)
+                dst_img = os.path.join(val_dst, img)
+                os.symlink(src_img, dst_img)
 
 
 def create_garbage_links(num_classes, wnid_labels, original_training_path, \
                          new_training_path, original_validation_path, \
                          new_validation_path):
-    if os.path.exists(new_training_path):
-        shutil.rmtree(new_training_path)
-    os.makedirs(new_training_path)
+    if new_training_path is not '':
+        if os.path.exists(new_training_path):
+            shutil.rmtree(new_training_path)
+        os.makedirs(new_training_path)
 
-    if os.path.exists(new_validation_path):
-        shutil.rmtree(new_validation_path)
-    os.makedirs(new_validation_path)
+    if new_validation_path is not '':
+        if os.path.exists(new_validation_path):
+            shutil.rmtree(new_validation_path)
+        os.makedirs(new_validation_path)
 
     # Not sure if it's zero based or 1 based in Keras => remove both 0 and 1000
     class_indecies = random.sample(range(1, 999), num_classes - 1)
@@ -853,12 +855,14 @@ def create_garbage_links(num_classes, wnid_labels, original_training_path, \
         f.close()
 
     for dir in class_list:
-        src = os.path.join(original_training_path, dir.strip('\n'))
-        dst = os.path.join(new_training_path, dir.strip('\n'))
-        os.symlink(src, dst)
-        src = os.path.join(original_validation_path, dir.strip('\n'))
-        dst = os.path.join(new_validation_path, dir.strip('\n'))
-        os.symlink(src, dst)
+        if new_training_path is not '':
+            src = os.path.join(original_training_path, dir.strip('\n'))
+            dst = os.path.join(new_training_path, dir.strip('\n'))
+            os.symlink(src, dst)
+        if new_validation_path is not '':
+            src = os.path.join(original_validation_path, dir.strip('\n'))
+            dst = os.path.join(new_validation_path, dir.strip('\n'))
+            os.symlink(src, dst)
 
     return class_list
 

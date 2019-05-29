@@ -95,7 +95,7 @@ def local_accuracy(y_true, y_pred):
     return K.cast(K.equal(argmax_true, argmax_pred), K.floatx())
 
 def imagenet_generator(train_data_path, val_data_path, batch_size, do_augment, \
-                       val_batch_size=VALIDATION_BATCH_SIZE):
+                       val_batch_size=VALIDATION_BATCH_SIZE, image_size=IMAGE_SIZE):
     '''
         train_data_path: Path for ImageNet Training Directory
         val_data_path: Path for ImageNet Validation Directory
@@ -133,12 +133,12 @@ def imagenet_generator(train_data_path, val_data_path, batch_size, do_augment, \
       to training and validation data
     '''
     train_generator = train_datagen.flow_from_directory( \
-        train_data_path, target_size=(IMAGE_SIZE, IMAGE_SIZE), \
+        train_data_path, target_size=(image_size, image_size), \
         batch_size=batch_size, shuffle=True, class_mode='categorical', \
         follow_links=True)
     print("Grabbing Validation Dataset")
     validation_generator = val_datagen.flow_from_directory( \
-        val_data_path, target_size=(IMAGE_SIZE, IMAGE_SIZE), \
+        val_data_path, target_size=(image_size, image_size), \
         batch_size=val_batch_size, shuffle=True, \
         class_mode='categorical', \
         follow_links=True)
@@ -146,7 +146,7 @@ def imagenet_generator(train_data_path, val_data_path, batch_size, do_augment, \
 
 
 def imagenet_generator_multi(train_data_path, val_data_path, batch_size, do_augment, \
-                             val_batch_size=VALIDATION_BATCH_SIZE, num_outputs=2):
+                             val_batch_size=VALIDATION_BATCH_SIZE, image_size=IMAGE_SIZE, num_outputs=2):
     '''
         For use with auxiliary classifiers or mutliple outputs
         train_data_path: Path for ImageNet Training Directory
@@ -185,12 +185,12 @@ def imagenet_generator_multi(train_data_path, val_data_path, batch_size, do_augm
       to training and validation data
     '''
     train_generator = train_datagen.flow_from_directory( \
-        train_data_path, target_size=(IMAGE_SIZE, IMAGE_SIZE), \
+        train_data_path, target_size=(image_size, image_size), \
         batch_size=batch_size, shuffle=True, class_mode='categorical', \
         follow_links=True)
     # print("Grabbing Validation Dataset")
     validation_generator = val_datagen.flow_from_directory( \
-        val_data_path, target_size=(IMAGE_SIZE, IMAGE_SIZE), \
+        val_data_path, target_size=(image_size, image_size), \
         batch_size=val_batch_size, shuffle=True, \
         class_mode='categorical', \
         follow_links=True)
@@ -214,11 +214,11 @@ def create_multi_generator_3(data_generator):
         yield [data_imgs], [data_l, data_l, data_l]
 
 
-def fit_model(model, num_classes, first_class, last_class, batch_size, op_type=None, \
+def fit_model(model, num_classes, first_class, last_class, batch_size, image_size=227, op_type=None, \
               decay_params=None, imagenet_path=None, model_path='./',\
               train_path=None, val_path=None, tb_logpath='./logs', \
               meta_path=None, config_path=None, num_epochs=1000, augment=True, \
-              multi_outputs=False, clrcm_params=None, train_by_branch=False):
+              multi_outputs=False, clrcm_params=None, train_by_branch=False, num_outs=2):
     '''
     :param model: Keras model
     :param num_classes:
@@ -304,21 +304,19 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, op_type=N
     # print("OCD check: Train IMG Path:", train_img_path)
     # print("OCD check: Val IMG Path:", val_img_path)
     if multi_outputs is True:
-        train_data, val_data = imagenet_generator_multi(train_img_path, \
-                                                        val_img_path, batch_size=batch_size, \
-                                                        do_augment=augment)
-        # train_data_test, val_data_test = imagenet_generator_multi(train_img_path, \
-        #                                                val_img_path, batch_size=batch_size, val_batch_size=50, \
-        #                                                do_augment=augment)
+        if num_outs == 2:
+            train_data, val_data = imagenet_generator_multi(train_img_path, \
+                                                            val_img_path, batch_size=batch_size, \
+                                                            do_augment=augment, image_size=image_size)
+        else:
+            train_data, val_data = imagenet_generator_multi(train_img_path, \
+                                                            val_img_path, batch_size=batch_size, val_batch_size=50, \
+                                                            do_augment=augment, num_outputs=num_outs, image_size=image_size)
 
     else:
         train_data, val_data = imagenet_generator(train_img_path, val_img_path, \
                                                   batch_size=batch_size, \
-                                                  do_augment=augment)
-        # train_data_test, val_data_test = imagenet_generator_multi(train_img_path, \
-        #                                                val_img_path, batch_size=batch_size, val_batch_size=50, \
-        #                                                do_augment=augment)
-
+                                                  do_augment=augment, image_size=image_size)
     # print(train_data)
 
     save_weights_callback = SaveWeightsNumpy(num_classes, model, model_path, period=2, selected_classes=

@@ -214,7 +214,7 @@ def create_multi_generator_3(data_generator):
         yield [data_imgs], [data_l, data_l, data_l]
 
 
-def fit_model(model, num_classes, first_class, last_class, batch_size, image_size=227, op_type=None, \
+def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch_size=50, image_size=227, op_type=None, \
               decay_params=None, imagenet_path=None, model_path='./',\
               train_path=None, val_path=None, tb_logpath='./logs', \
               meta_path=None, config_path=None, num_epochs=1000, augment=True, \
@@ -306,16 +306,17 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, image_siz
     if multi_outputs is True:
         if num_outs == 2:
             train_data, val_data = imagenet_generator_multi(train_img_path, \
-                                                            val_img_path, batch_size=batch_size, \
+                                                            val_img_path, batch_size=batch_size,
+                                                            val_batch_size=val_batch_size,\
                                                             do_augment=augment, image_size=image_size)
         else:
             train_data, val_data = imagenet_generator_multi(train_img_path, \
-                                                            val_img_path, batch_size=batch_size, val_batch_size=50, \
+                                                            val_img_path, batch_size=batch_size, val_batch_size=val_batch_size, \
                                                             do_augment=augment, num_outputs=num_outs, image_size=image_size)
 
     else:
         train_data, val_data = imagenet_generator(train_img_path, val_img_path, \
-                                                  batch_size=batch_size, \
+                                                  batch_size=batch_size, val_batch_size=val_batch_size, \
                                                   do_augment=augment, image_size=image_size)
     # print(train_data)
 

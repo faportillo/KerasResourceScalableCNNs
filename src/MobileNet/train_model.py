@@ -27,12 +27,12 @@ from tensorflow.python.keras import backend as K
 from tensorflow.python.ops import clip_ops
 
 # Mahya
-IMAGENET_PATH = '/HD1/'
+'''IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'Train/'
 VAL_2_PATH = 'Val_2/'
 META_FILE = 'dev_kit/ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5
+VALID_TIME_MINUTE = 5'''
 
 # Pitagyro
 '''IMAGENET_PATH = '/HD1/'
@@ -43,19 +43,19 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5'''
 
 # MC
-'''IMAGENET_PATH = '/HD1/'
+IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'train/'
 VAL_2_PATH = 'val/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5'''
+VALID_TIME_MINUTE = 5
 
 def main():
-    model_path = './L5/'
+    model_path = './L15/'
     if not os.path.exists(model_path):
         os.makedirs(model_path)
 
-    ofms = [16, 32, 43, 43, 85, 85, 109, 109, 228, 228, 5]
+    ofms = [16, 32, 43, 43, 88, 88, 125, 125, 238, 238, 15]
     print(len(ofms))
     with open(model_path + '/ofms.txt', 'w') as f:
         for ofm in ofms:

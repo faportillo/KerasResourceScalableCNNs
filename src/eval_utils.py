@@ -201,7 +201,6 @@ def get_global_accuracy(model, num_classes, imagnenet_path, val_path, meta_file,
                 pred_class = 1
             else:
                 pred_class = 0
-
             if pred_class == global_index:
                 correct_global_imgs += 1
 

@@ -35,29 +35,29 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5'''
 
 # Pitagyro
-IMAGENET_PATH = '/HD1/'
+'''IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'ILSVRC2012_img_train/'
 VAL_2_PATH = 'Val_2/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5
+VALID_TIME_MINUTE = 5'''
 
 # MC
-'''IMAGENET_PATH = '/HD1/'
+IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'train/'
 VAL_2_PATH = 'val/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5'''
+VALID_TIME_MINUTE = 5
 
 def main():
-    model_path = './L10_linear/'
+    model_path = './L15_linear/'
     if not os.path.exists(model_path):
         os.makedirs(model_path)
 
     ofms = [15, 15, 44, 15, 22, 4, 29, 7, 7, 29, 29, 7, 44, 22, 15, 44, 22, 4, 48, 11,
             15, 37, 26, 6, 51, 15, 15, 29, 29, 6, 59, 15, 15, 26, 33, 7, 66, 15, 15, 59,
-            37, 7, 74, 29, 29, 59, 37, 7, 74, 29, 29, 88, 44, 11, 88, 29, 29, 10]
+            37, 7, 74, 29, 29, 59, 37, 7, 74, 29, 29, 88, 44, 11, 88, 29, 29, 15]
     print(len(ofms))
     with open(model_path + '/ofms.txt', 'w') as f:
         for ofm in ofms:

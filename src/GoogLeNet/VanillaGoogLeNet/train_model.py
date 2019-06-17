@@ -14,7 +14,7 @@ import os.path as path
 p = path.abspath(path.join(__file__, "../../../.."))
 sys.path.append(p)
 import src.train_utils as tu
-import src.GoogLeNet.VanillaGoogLeNet.googlenet as vgn
+import src.GoogLeNet.VanillaGoogLeNet.inception_v1 as inc_v1
 
 from tensorflow.python.keras.optimizers import Adam, RMSprop
 from tensorflow.python.keras.backend import int_shape
@@ -55,7 +55,7 @@ def main():
     if not os.path.exists(model_path):
         os.makedirs(model_path)
 
-    g_csn = vgn.googlenet_model(227, 227, 3, num_classes=1000)
+    g_csn = inc_v1.InceptionV1(include_top=True, weights='imagenet')
     num_classes = 1000  # number of classes
     first_class = 0
     last_class = 49

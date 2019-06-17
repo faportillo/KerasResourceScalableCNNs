@@ -18,7 +18,7 @@ sys.path.append(p)
 import src.train_utils as tu
 import src.prune_utils as pu
 import src.eval_utils as eu
-import src.GoogLeNet.VanillaGoogLeNet.googlenet as vgn
+import src.GoogLeNet.VanillaGoogLeNet.inception_v1 as inc_v1
 
 from tensorflow.python.keras.optimizers import Adam, RMSprop
 from tensorflow.python.keras.backend import int_shape
@@ -63,17 +63,18 @@ def main():
         model = rs_net_ch(num_classes=num_classes, ofms=ofms)
         model = tu.load_model_npy(model, model_path + 'weights.npy')
     elif model_type == 'googlenet':
-        model = vgn.googlenet_model(227, 227, 3, num_classes=1000)
+        model = inc_v1.InceptionV1(include_top=True, weights='imagenet')
         #model.load_weights(model_path + 'googlenet_weights.h5')
 
     epochs = 64
 
-    pruned_model = pu.prune_model(model, imagenet_path=IMAGENET_PATH,
+    pruned_model = pu.prune_model(model, model_type='googlenet',
+                                  batch_size=64,
+                                  imagenet_path=IMAGENET_PATH,
                                   train_path=TRAIN_PATH,
                                   val_path=VAL_2_PATH,
                                   meta_path=META_FILE,
                                   tb_logpath=model_path+"logs",
-                                  config_path=CONFIG_PATH,
                                   num_epochs=epochs)
 
     local_accuracy = eu.get_local_accuracy(pruned_model, IMAGENET_PATH,

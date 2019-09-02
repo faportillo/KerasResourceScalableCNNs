@@ -320,7 +320,7 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch
                                                   do_augment=augment, image_size=image_size)
     # print(train_data)
 
-    save_weights_callback = SaveWeightsNumpy(num_classes, model, model_path, period=2, selected_classes=
+    save_weights_callback = SaveWeightsNumpy(num_classes, model, model_path, period=1, selected_classes=
     selected_classes, wnid_labels=wnid_labels, orig_train_img_path=orig_train_img_path,
                                              new_training_path=new_training_path, orig_val_img_path=orig_val_img_path,
                                              new_val_path=val_img_path)
@@ -1238,22 +1238,22 @@ class SaveWeightsNumpy(Callback):
                     correct_imgs += 1
         local_acc = correct_imgs * 1.0 / total_imgs
 
-        if epoch % self.period == 0 and epoch >= self.period:
-            print("Saving weights to: " + str(self.file_path))
-            weights = self.model.get_weights()
-            np.save(self.file_path + 'weights.npy', weights)
-            if local_acc >= self.loc_acc:
-                self.loc_acc = local_acc
-                print("Has high local acc. Saving weights now")
-                np.save(self.file_path + 'loc_weights.npy', weights)
+        #if epoch % self.period == 0 and epoch >= self.period:
+        print("Saving weights to: " + str(self.file_path))
+        weights = self.model.get_weights()
+        np.save(self.file_path + 'weights.npy', weights)
+        # Check if sum of both global and local accuracy is the highest.
+        global_local_sum = local_acc + logs.get('val_prob_main_categorical_accuracy')
+        print("\nglobal_local_sum: " + str(global_local_sum))
+        if global_local_sum > self.acc_sum:
+            self.acc_sum = global_local_sum
+            print("Has highest acc_sum. Saving to max_l_g_weights.npy...\n")
+            np.save(self.file_path + 'max_l_g_weights.npy', weights)
+        if local_acc >= self.loc_acc:
+            self.loc_acc = local_acc
+            print("Has high local acc. Saving weights now")
+            np.save(self.file_path + 'loc_weights.npy', weights)
 
-            # Check if sum of both global and local accuracy is the highest.
-            global_local_sum = local_acc + logs.get('val_prob_main_categorical_accuracy')
-            print("global_local_sum" + str(global_local_sum))
-            if global_local_sum > self.acc_sum:
-                self.acc_sum = global_local_sum
-                print("Has highest acc_sum. Saving to max_l_g_weights.npy...")
-                np.save(self.file_path + 'max_l_g_weights.npy', weights)
 
             '''if round(local_acc, 3) >= 0.770 and self.finetuning:
                 # Stop finetuning if local accuracy meets or exceeds unpruned value for this

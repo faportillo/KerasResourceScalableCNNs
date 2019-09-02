@@ -23,6 +23,8 @@ from tensorflow.python.keras.models import Model, save_model, load_model
 from tensorflow.python.keras.optimizers import Adam, RMSprop
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.metrics import top_k_categorical_accuracy,categorical_accuracy
+from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint, \
+    Callback, LearningRateScheduler, TerminateOnNaN
 
 import tensorflow_model_optimization as tfmot
 from tensorflow_model_optimization.sparsity import keras as sparsity
@@ -84,7 +86,7 @@ def prune_by_std(model, s=0.25):
 def prune_model(model, model_type='resource_scalable', num_classes=1000, batch_size=64, val_batch_size=50, loss_type='focal', op_type='adam',
                 imagenet_path=None, model_path='./',
                 train_path=None, val_path=None, tb_logpath='./logs',
-                meta_path=None, num_epochs=1000):
+                meta_path=None, num_epochs=1000, augment=True):
 
     '''
         Prune a resource-scalable model
@@ -111,22 +113,23 @@ def prune_model(model, model_type='resource_scalable', num_classes=1000, batch_s
     val_img_path = orig_val_img_path
     wnid_labels, _ = tu.load_imagenet_meta(os.path.join(imagenet_path, \
                                                      meta_path))
-    new_training_path = os.path.join(imagenet_path, "GARBAGE_TRAIN_")
-    new_validation_path = os.path.join(imagenet_path, "GARBAGE_VAL_")
-    selected_classes = tu.create_garbage_links(num_classes, wnid_labels, train_img_path, \
-                                            new_training_path, val_img_path, new_validation_path)
-    tu.create_garbage_class_folder(selected_classes, wnid_labels,
-                                train_img_path, new_training_path,
-                                val_img_path, new_validation_path)
-    train_img_path = new_training_path
-    val_img_path = new_validation_path
+    if model_type == 'resource_scalable':
+        new_training_path = os.path.join(imagenet_path, "GARBAGE_TRAIN_")
+        new_validation_path = os.path.join(imagenet_path, "GARBAGE_VAL_")
+        selected_classes = tu.create_garbage_links(num_classes, wnid_labels, train_img_path, \
+                                                new_training_path, val_img_path, new_validation_path)
+        tu.create_garbage_class_folder(selected_classes, wnid_labels,
+                                    train_img_path, new_training_path,
+                                    val_img_path, new_validation_path)
+        train_img_path = new_training_path
+        val_img_path = new_validation_path
 
     tb_callback = TensorBoard(log_dir=tb_logpath)
     termNaN_callback = TerminateOnNaN()
 
     callbacks = [tb_callback, termNaN_callback,
                  sparsity.UpdatePruningStep(),
-                 sparsity.PruningSummaries(log_dir=logdir, profile_batch=0)]
+                 sparsity.PruningSummaries(log_dir=tb_logpath, profile_batch=0)]
 
     if op_type == 'rmsprop':
         '''
@@ -154,12 +157,14 @@ def prune_model(model, model_type='resource_scalable', num_classes=1000, batch_s
     print(model.summary())
     sys.stdout = orig_stdout
     f.close()
+    print("Defining pruning schedule...")
     new_pruning_params = {'pruning_schedule': sparsity.PolynomialDecay(initial_sparsity=0.0,
                                                                        final_sparsity=0.50,
                                                                        begin_step=0,
                                                                        end_step=end_step)}
 
     pruned_model = sparsity.prune_low_magnitude(model, **new_pruning_params)
+    print("Compiling model")
     if model_type == 'resource_scalable':
         if loss_type == 'focal':
             loss1 = tu.focal_loss(alpha=.25, gamma=2)
@@ -168,7 +173,7 @@ def prune_model(model, model_type='resource_scalable', num_classes=1000, batch_s
             loss1 = tu.dual_loss(alpha=.25, gamma=2)
             loss2 = tu.dual_loss(alpha=.25, gamma=2)
 
-        train_data, val_data = imagenet_generator_multi(train_img_path, \
+        train_data, val_data = tu.imagenet_generator_multi(train_img_path, \
                                                         val_img_path, batch_size=batch_size, \
                                                         do_augment=augment)
 
@@ -181,25 +186,25 @@ def prune_model(model, model_type='resource_scalable', num_classes=1000, batch_s
                       loss='categorical_crossentropy',
                       metrics=['accuracy'])
 
-        train_data, val_data = imagenet_generator_multi(train_img_path, \
+        train_data, val_data = tu.imagenet_generator(train_img_path, \
                                                         val_img_path, batch_size=batch_size, \
-                                                        do_augment=augment, num_outputs=3)
+                                                        do_augment=augment)
     else:
         pruned_model.compile(optimizer=op_type,
                              loss='categorical_crossentropy',
                              metrics=['accuracy'])
 
-        train_data, val_data = imagenet_generator(train_img_path, \
+        train_data, val_data = tu.imagenet_generator(train_img_path, \
                                                         val_img_path, batch_size=batch_size, \
                                                         do_augment=augment)
-
+    print("Fitting model")
     pruned_model.fit_generator(train_data, epochs=num_epochs, \
                         steps_per_epoch=int(num_classes * 1300) / batch_size, \
                         validation_data=val_data, \
                         validation_steps= \
                             int((num_classes * 50) / val_batch_size), \
-                        verbose=1, callbacks=callback_list, workers=20,
-                        use_multiprocessing=True)
+                        verbose=2, callbacks=callbacks, workers=1,
+                        use_multiprocessing=False)
 
     return pruned_model
 

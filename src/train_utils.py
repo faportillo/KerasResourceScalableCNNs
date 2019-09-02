@@ -23,7 +23,7 @@ from tensorflow.python.ops import clip_ops
 
 # from model_shell import google_csn
 
-IMAGE_SIZE = 227
+IMAGE_SIZE = 224
 ROT_RANGE = 30
 WIDTH_SHIFT_RANGE = 0.2
 HEIGHT_SHIFT_RANGE = 0.2

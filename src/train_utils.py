@@ -1192,6 +1192,8 @@ class SaveWeightsNumpy(Callback):
         # self.testNet = ConvNet(file_path, num_classes, 50)
         self.orig_model = orig_model
         self.finetuning = finetuning
+        self.loc_acc = 0.0
+        self.acc_sum = 0.0
 
     def on_epoch_end(self, epoch, logs={}):
 
@@ -1240,9 +1242,18 @@ class SaveWeightsNumpy(Callback):
             print("Saving weights to: " + str(self.file_path))
             weights = self.model.get_weights()
             np.save(self.file_path + 'weights.npy', weights)
-            if local_acc >= 0.7:
+            if local_acc >= self.loc_acc:
+                self.loc_acc = local_acc
                 print("Has high local acc. Saving weights now")
                 np.save(self.file_path + 'loc_weights.npy', weights)
+
+            # Check if sum of both global and local accuracy is the highest.
+            global_local_sum = local_acc + logs.get('val_prob_main_categorical_accuracy')
+            print("global_local_sum" + str(global_local_sum))
+            if global_local_sum > self.acc_sum:
+                self.acc_sum = global_local_sum
+                print("Has highest acc_sum. Saving to max_l_g_weights.npy...")
+                np.save(self.file_path + 'max_l_g_weights.npy', weights)
 
             '''if round(local_acc, 3) >= 0.770 and self.finetuning:
                 # Stop finetuning if local accuracy meets or exceeds unpruned value for this

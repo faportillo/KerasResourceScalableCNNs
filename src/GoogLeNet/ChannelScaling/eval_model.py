@@ -53,7 +53,7 @@ VALID_TIME_MINUTE = 5
 
 def main():
 
-    model_path = './L15_linear/'
+    model_path = './L5_s3_trial1/'
 
     # Load ofms list from .txt file
     ofms = []
@@ -66,7 +66,7 @@ def main():
 
     # Create model
     model = rs_net_ch(num_classes=num_classes, ofms=ofms)
-    model = tu.load_model_npy(model, model_path + 'weights.npy')
+    model = tu.load_model_npy(model, model_path + 'max_l_g_weights.npy')
 
     #Get raw, local, and global accuracy
     local_accuracy = eu.get_local_accuracy(model, IMAGENET_PATH,

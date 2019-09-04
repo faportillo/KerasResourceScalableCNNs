@@ -195,6 +195,8 @@ def get_global_accuracy(model, num_classes, imagnenet_path, val_path, meta_file,
                 continue
             img = img.reshape(1, 227, 227, 3)
             pred = model.predict(img)
+            print(np.argmax(pred[0]))
+            print(np.argmax(pred[1]))
             total_imgs += 1
 
             if np.argmax(pred[0]) > 0:

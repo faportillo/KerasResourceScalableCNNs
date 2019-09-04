@@ -332,7 +332,7 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch
                         steps_per_epoch=int(num_classes * 1300) / batch_size, \
                         validation_data=val_data, \
                         validation_steps= \
-                            int((num_classes * 50) / VALIDATION_BATCH_SIZE), \
+                            int(50000 / val_batch_size), \
                         verbose=1, callbacks=callback_list, workers=20,
                         use_multiprocessing=True)
 

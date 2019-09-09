@@ -329,7 +329,7 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch
     # Fit and validate model based on generators
     # print("Fitting Model")
     model.fit_generator(train_data, epochs=num_epochs, \
-                        steps_per_epoch=int(num_classes * 1300) / batch_size, \
+                        steps_per_epoch=int(num_classes * 1300*5) / batch_size, \
                         validation_data=val_data, \
                         validation_steps= \
                             int(50000 / val_batch_size), \
@@ -694,7 +694,7 @@ def change_garbage_class_folder(selected_classes, wnid_labels,
     # print("Creating new symlinks for g class ...")
     chosen_elems = []
     # number of images from garbage classes = number of images from selected classes
-    while (cnt <= 1300):
+    while (cnt <= 1300*5):
         cls_num = random.randint(0, len(class_list) - 1)
         elem = class_list[cls_num]
         train_src = os.path.join(original_training_path, elem.strip('\n'))

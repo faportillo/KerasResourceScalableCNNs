@@ -28,12 +28,12 @@ from tensorflow.python.keras import backend as K
 from tensorflow.python.ops import clip_ops
 
 # Mahya
-IMAGENET_PATH = '/HD1/'
+'''IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'Train/'
 VAL_2_PATH = 'Val_2/'
 META_FILE = 'dev_kit/ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5
+VALID_TIME_MINUTE = 5'''
 
 # Pitagyro
 '''IMAGENET_PATH = '/HD1/'
@@ -44,16 +44,16 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5'''
 
 # MC
-'''IMAGENET_PATH = '/HD1/'
+IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'train/'
 VAL_2_PATH = 'val/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5'''
+VALID_TIME_MINUTE = 5
 
 def main():
 
-    model_path = './L10_s3_trial2/'
+    model_path = './L20_s3_trial1/'
 
     # Load ofms list from .txt file
     ofms = []
@@ -67,7 +67,7 @@ def main():
     # Create model
     model = rs_net_ch(num_classes=num_classes, ofms=ofms)
     model.load_weights(model_path + 'weights.hdf5')
-    #model = tu.load_model_npy(model, model_path + 'loc_weights.npy')
+    #model = tu.load_model_npy(model, model_path + 'weights.npy')
 
     #Get raw, local, and global accuracy
     local_accuracy = eu.get_local_accuracy(model, IMAGENET_PATH,

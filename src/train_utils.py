@@ -333,8 +333,8 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch
                         validation_data=val_data, \
                         validation_steps= \
                             int(50000 / val_batch_size),
-                        validation_freq = 10,
-                        verbose=1, callbacks=callback_list, workers=40,
+                        max_queue_size = 40,
+                        verbose=1, callbacks=callback_list, workers=20,
                         use_multiprocessing=True)
 
     save_model(model, model_path+'rs_model_final.h5')

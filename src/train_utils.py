@@ -320,10 +320,10 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch
                                                   do_augment=augment, image_size=image_size)
     # print(train_data)
 
-    save_weights_callback = SaveWeightsNumpy(num_classes, model, model_path, period=1, selected_classes=
+    save_weights_callback = SaveWeightsNumpy(num_classes, model, model_path, period=10, selected_classes=
     selected_classes, wnid_labels=wnid_labels, orig_train_img_path=orig_train_img_path,
                                              new_training_path=new_training_path, orig_val_img_path=orig_val_img_path,
-                                             new_val_path=val_img_path)
+                                             new_val_path=val_img_path, multi_outputs=multi_outputs)
     callback_list.append(save_weights_callback)
 
     # Fit and validate model based on generators
@@ -333,9 +333,10 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch
                         validation_data=val_data, \
                         validation_steps= \
                             int(50000 / val_batch_size),
-                        max_queue_size = 40,
-                        verbose=1, callbacks=callback_list, workers=20,
-                        use_multiprocessing=True)
+                        validation_freq=10,
+                        max_queue_size = 16,
+                        verbose=1, callbacks=callback_list, workers=4,
+                        use_multiprocessing=False)
 
     save_model(model, model_path+'rs_model_final.h5')
 
@@ -1177,7 +1178,7 @@ class OneCycle(Callback):
 
 class SaveWeightsNumpy(Callback):
     def __init__(self, num_classes, orig_model, file_path, period, selected_classes, wnid_labels,
-                 orig_train_img_path, new_training_path, orig_val_img_path, new_val_path, finetuning=False):
+                 orig_train_img_path, new_training_path, orig_val_img_path, new_val_path, finetuning=False, multi_outputs=True):
         super(SaveWeightsNumpy, self).__init__()
         self.num_classes = num_classes
         self.file_path = file_path
@@ -1193,74 +1194,82 @@ class SaveWeightsNumpy(Callback):
         # self.testNet = ConvNet(file_path, num_classes, 50)
         self.orig_model = orig_model
         self.finetuning = finetuning
+        self.multi_outputs = multi_outputs
         self.loc_acc = 0.0
         self.acc_sum = 0.0
 
     def on_epoch_end(self, epoch, logs={}):
-
-        # print("\nOverall Results: ")
-        # print(self.orig_model.evaluate_generator(self.val_data_test, steps= \
-        # 	                       int(self.num_classes)))
-        selected_dirs = []
-        selected_dirs.append('')
-        f = open('selected_dirs.txt', 'r')
-        for line in f:
-            line = line.strip('\n')
-            selected_dirs.append(line)
-        f.close()
-        selected_dirs = sorted(selected_dirs)
-        all_dirs = os.listdir(self.new_val_path)
-        total_imgs = 0
-        correct_imgs = 0
-        for folder in all_dirs:
-            correct_index = 0
-            if folder in selected_dirs:
-                correct_index = selected_dirs.index(folder)
-            else:
-                continue
-            p = os.path.join(self.new_val_path, folder)
-            all_imgs = os.listdir(p)
-            for elem in all_imgs:
-                file_name = os.path.join(p, elem)
-                img = Image.open(file_name)
-                img = img.resize((227, 227))
-                img = np.array(img)
-                img = img / 255.0
-                if (len(img.shape) != 3) or (img.shape[0] * img.shape[1] * img.shape[2] !=
-                                             (227 * 227 * 3)):
-                    # print ("Wrong format skipped")
+        if epoch == self.period:
+            print("Computing local validation accuracy...")
+            # print("\nOverall Results: ")
+            # print(self.orig_model.evaluate_generator(self.val_data_test, steps= \
+            # 	                       int(self.num_classes)))
+            selected_dirs = []
+            selected_dirs.append('')
+            f = open('selected_dirs.txt', 'r')
+            for line in f:
+                line = line.strip('\n')
+                selected_dirs.append(line)
+            f.close()
+            selected_dirs = sorted(selected_dirs)
+            all_dirs = os.listdir(self.new_val_path)
+            total_imgs = 0
+            correct_imgs = 0
+            for folder in all_dirs:
+                correct_index = 0
+                if folder in selected_dirs:
+                    correct_index = selected_dirs.index(folder)
+                else:
                     continue
-                img = img.reshape(1, 227, 227, 3)
-                pred = self.model.predict(img)
-                # print (pred[1])
-                total_imgs += 1
-                # print(pred[1].shape)
-                if np.argmax(pred[0]) == correct_index:
-                    correct_imgs += 1
-        local_acc = correct_imgs * 1.0 / total_imgs
-
-        #if epoch % self.period == 0 and epoch >= self.period:
-        print("Saving weights to: " + str(self.file_path))
-        weights = self.model.get_weights()
-        np.save(self.file_path + 'weights.npy', weights)
-        # Check if sum of both global and local accuracy is the highest.
-        global_local_sum = local_acc + logs.get('val_prob_main_categorical_accuracy')
-        print("\nglobal_local_sum: " + str(global_local_sum))
-        if global_local_sum > self.acc_sum:
-            self.acc_sum = global_local_sum
-            print("Has highest acc_sum. Saving to max_l_g_weights.npy...\n")
-            np.save(self.file_path + 'max_l_g_weights.npy', weights)
-        if local_acc >= self.loc_acc:
-            self.loc_acc = local_acc
-            print("Has high local acc. Saving weights now")
-            np.save(self.file_path + 'loc_weights.npy', weights)
-
-
-            '''if round(local_acc, 3) >= 0.770 and self.finetuning:
-                # Stop finetuning if local accuracy meets or exceeds unpruned value for this
-                # number of classes
-                self.model.stop_training = True
-        change_garbage_class_folder(self.selected_classes, self.wnid_labels, self.orig_train_img_path,
-                                    self.new_training_path)'''
+                p = os.path.join(self.new_val_path, folder)
+                all_imgs = os.listdir(p)
+                for elem in all_imgs:
+                    file_name = os.path.join(p, elem)
+                    img = Image.open(file_name)
+                    img = img.resize((227, 227))
+                    img = np.array(img)
+                    img = img / 255.0
+                    if (len(img.shape) != 3) or (img.shape[0] * img.shape[1] * img.shape[2] !=
+                                                 (227 * 227 * 3)):
+                        # print ("Wrong format skipped")
+                        continue
+                    img = img.reshape(1, 227, 227, 3)
+                    pred = self.model.predict(img)
+                    # print (pred[1])
+                    total_imgs += 1
+                    # print(pred[1].shape)
+                    if self.multi_outputs:
+                        if np.argmax(pred[0]) == correct_index:
+                            correct_imgs += 1
+                    else:
+                        if np.argmax(pred) == correct_index:
+                            correct_imgs += 1
+            local_acc = correct_imgs * 1.0 / total_imgs
+    
+            #if epoch % self.period == 0 and epoch >= self.period:
+            print("Saving weights to: " + str(self.file_path))
+            weights = self.model.get_weights()
+            np.save(self.file_path + 'weights.npy', weights)
+            # Check if sum of both global and local accuracy is the highest.
+            if local_acc is not None and logs.get('val_prob_main_categorical_accuracy') is not None:
+                global_local_sum = local_acc + logs.get('val_prob_main_categorical_accuracy')
+    
+                print("\nglobal_local_sum: " + str(global_local_sum))
+                if global_local_sum > self.acc_sum:
+                    self.acc_sum = global_local_sum
+                    print("Has highest acc_sum. Saving to max_l_g_weights.npy...\n")
+                    np.save(self.file_path + 'max_l_g_weights.npy', weights)
+                if local_acc >= self.loc_acc:
+                    self.loc_acc = local_acc
+                    print("Has high local acc. Saving weights now")
+                    np.save(self.file_path + 'loc_weights.npy', weights)
+    
+    
+                '''if round(local_acc, 3) >= 0.770 and self.finetuning:
+                    # Stop finetuning if local accuracy meets or exceeds unpruned value for this
+                    # number of classes
+                    self.model.stop_training = True
+            change_garbage_class_folder(self.selected_classes, self.wnid_labels, self.orig_train_img_path,
+                                        self.new_training_path)'''
 
 

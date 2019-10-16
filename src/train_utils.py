@@ -213,6 +213,156 @@ def create_multi_generator_3(data_generator):
         data_imgs, data_l = next(data_generator)
         yield [data_imgs], [data_l, data_l, data_l]
 
+def create_dataset(train_data_path, val_data_path, batch_size, do_augment=True,
+                   format='generator', tf_record_dir=None, val_batch_size=VALIDATION_BATCH_SIZE,
+                   image_size=IMAGE_SIZE, num_outputs=2):
+    '''
+            ToDO: Replace imagenet_generator(_multi) with this function
+            Uses ImageDataGenerator to create dataset from directory and either returns generators for
+            train/val or converts to TFRecord file
+            :return: Keras Data Generators (or TFRecord Files) for Training and Validation
+        '''
+    if do_augment == True:
+        if format == 'tfrecord':
+            raise Exception("Cannot augment images beforehand if coverting to TFRecord.")
+        rot_range = ROT_RANGE
+        w_shift_r = WIDTH_SHIFT_RANGE
+        h_shift_r = HEIGHT_SHIFT_RANGE
+        z_range = ZOOM_RANGE
+        shear_r = SHEAR_RANGE
+        h_flip = True
+    else:
+        rot_range = 0
+        w_shift_r = 0.0
+        h_shift_r = 0.0
+        z_range = 0.0
+        shear_r = 0.0
+        h_flip = False
+
+    # print("Grabbing Training Dataset")
+    train_datagen = ImageDataGenerator(samplewise_center=False, \
+                                       rotation_range=rot_range, \
+                                       width_shift_range=w_shift_r, \
+                                       height_shift_range=h_shift_r, \
+                                       zoom_range=z_range, \
+                                       shear_range=shear_r, \
+                                       horizontal_flip=h_flip, \
+                                       fill_mode='nearest', rescale=1. / 255)
+
+    val_datagen = ImageDataGenerator(rescale=1. / 255)
+
+    '''
+      Change follow_links to True when using symbolic links
+      to training and validation data
+    '''
+    train_generator = train_datagen.flow_from_directory( \
+        train_data_path, target_size=(image_size, image_size), \
+        batch_size=batch_size, shuffle=True, class_mode='categorical', \
+        follow_links=True)
+    # print("Grabbing Validation Dataset")
+    validation_generator = val_datagen.flow_from_directory( \
+        val_data_path, target_size=(image_size, image_size), \
+        batch_size=val_batch_size, shuffle=True, \
+        class_mode='categorical', \
+        follow_links=True)
+    if num_outputs == 1:
+        print("")
+    elif num_outputs == 2:
+        train_generator = create_multi_generator(train_generator)
+        validation_generator = create_multi_generator(validation_generator)
+    elif num_outputs == 3:
+        train_generator = create_multi_generator_3(train_generator)
+        validation_generator = create_multi_generator_3(validation_generator)
+    else:
+        raise Exception("Invalid num_outputs type")
+
+
+    if format=='generator':
+        return train_generator, validation_generator
+    elif format=='tfrecord':
+        if tf_record_dir is None:
+            raise Exception("No tf_record_dir specified. Need to define in order to save TFRecord files in a location")
+        print("Grabbing data from directories...")
+        train_dataset = tf.data.Dataset.from_generator(lambda: train_generator, (tf.float32, tf.int64))
+        val_dataset = tf.data.Dataset.from_generator(lambda: validation_generator, (tf.float32, tf.int64))
+
+        def tr_generator():
+            for features in train_dataset:
+                print(features)
+                yield serialize(*features)
+        def va_generator():
+            for features in val_dataset:
+                print(features)
+                yield  serialize(*features)
+        print("Serializing datasets...")
+        serialized_train_dataset = tf.data.Dataset.from_generator(tr_generator,
+                                                                  output_types=tf.string,
+                                                                  output_shapes=())
+        serialized_val_dataset = tf.data.Dataset.from_generator(va_generator,
+                                                                  output_types=tf.string,
+                                                                  output_shapes=())
+        print(serialized_train_dataset)
+        print("Writing to .tfrecord files...")
+        writer = tf.python_io.TFRecordWriter(tf_record_dir + 'train.tfrecord')
+        writer.write(serialized_train_dataset)
+        print("Train TFRecord File written to " + tf_record_dir + 'train.tfrecord')
+        writer = tf.python_io.TFRecordWriter(tf_record_dir + 'val.tfrecord')
+        writer.write(serialized_val_dataset)
+        print("Validation TFRecord File written to " + tf_record_dir + 'val.tfrecord')
+        return #TFRecord files
+    else:
+        raise Exception("Invalid format type")
+
+def _bytes_feature(value):
+    """Returns a bytes_list from a string / byte."""
+    if isinstance(value, type(tf.constant(0))):
+        value = value.numpy() # BytesList won't unpack a string from an EagerTensor.
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+def _float_feature(value):
+    """Returns a float_list from a float / double."""
+    return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
+
+def _int64_feature(value):
+    """Returns an int64_list from a bool / enum / int / uint."""
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
+def tf_serialize(img, label, num_outputs=2):
+    tf_string = tf.py_function(serialize,
+                               (img, label, num_outputs),
+                               (tf.string))
+    return tf.reshape(tf_string, ())
+
+def serialize(img, label, num_outputs=2):
+    '''
+    Used to serialize input image dataset for use in TFRecords
+    :param img:
+    :param label:
+    :param num_outputs:
+    :return:
+    '''
+    if num_outputs == 1:
+        data = {
+            'img': _float_feature(img),
+            'label': _int64_feature(label),
+        }
+    elif num_outputs == 2:
+        data = {
+            'img': _float_feature(img),
+            'main_label': _int64_feature(label),
+            'aux_label': _int64_feature(label),
+        }
+    elif num_outputs == 3:
+        data = {
+            'img': _float_feature(img),
+            'main_label': _int64_feature(label),
+            'aux_label1': _int64_feature(label),
+            'aux_label2': _int64_feature(label),
+        }
+    else:
+        raise Exception("Invalid number of outputs for network. Cannot serialize data.")
+    example_proto = tf.train.Example(features=tf.train.Features(feature=data))
+    return example_proto.SerializeToString()
 
 def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch_size=50, image_size=227, op_type=None, \
               decay_params=None, imagenet_path=None, model_path='./',\
@@ -342,41 +492,21 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch
 
     return model
 
-
-def finetune_model(model, num_classes, first_class, last_class, batch_size, op_type=None, \
-                   decay_params=None, imagenet_path=None, \
-                   train_path=None, val_path=None, tb_logpath='./logs', \
-                   meta_path=None, config_path=None, num_epochs=1000, augment=True, \
-                   multi_outputs=False, clrcm_params=None, train_by_branch=False):
+def fit_model_tfr(model, num_classes, num_epochs=1000, batch_size=64, val_batch_size=VALIDATION_BATCH_SIZE,
+                  image_size=227, op_type=None, dataset_path=None, model_path='./', train_path=None,
+                  val_path=None, format='generator', tfr_path=None, tb_logpath='./logs', meta_path=None, augment=True, multi_outputs=False,num_outs=1):
     '''
-    :param model: Keras model
-    :param num_classes:
-    :param batch_size:
-    :param op_type: Optimizer type
-    :param decay_params: Decay parameters for rmsprop
-    :param imagenet_path:
-    :param train_path:
-    :param val_path:
-    :param tb_logpath: Tensorboard Path
-    :param meta_path: ImageNet meta path
-    :param config_path: Config file path
-    :param num_epochs:
-    :param augment: Augment data (t/f)
-    :param multi_outputs: Use aux classifier
-    :param clrcm_params: CLRC(Cyclical Learning Rate, Cyclical Momentum for sgd
-    :return:
+        ToDo: Update to be single fit_model function (i.e. update fitmodel with this...)
+          Fit Model to dataset
     '''
-    '''
-      Fit Model to dataset
-    '''
-    orig_train_img_path = os.path.join(imagenet_path, train_path)
-    orig_val_img_path = os.path.join(imagenet_path, val_path)
+    orig_train_img_path = os.path.join(dataset_path, train_path)
+    orig_val_img_path = os.path.join(dataset_path, val_path)
     train_img_path = orig_train_img_path
     val_img_path = orig_val_img_path
-    wnid_labels, _ = load_imagenet_meta(os.path.join(imagenet_path, \
+    wnid_labels, _ = load_imagenet_meta(os.path.join(dataset_path, \
                                                      meta_path))
-    new_training_path = os.path.join(imagenet_path, "GARBAGE_TRAIN_")
-    new_validation_path = os.path.join(imagenet_path, "GARBAGE_VAL_")
+    new_training_path = os.path.join(dataset_path, "GARBAGE_TRAIN_")
+    new_validation_path = os.path.join(dataset_path, "GARBAGE_VAL_")
     selected_classes = create_garbage_links(num_classes, wnid_labels, train_img_path, \
                                             new_training_path, val_img_path, new_validation_path)
     create_garbage_class_folder(selected_classes, wnid_labels,
@@ -385,11 +515,6 @@ def finetune_model(model, num_classes, first_class, last_class, batch_size, op_t
     train_img_path = new_training_path
     val_img_path = new_validation_path
 
-    # for layer in model.layers:
-    # print(layer, layer.trainable)
-    # print(model.inputs)
-    # print(model.outputs)
-    # print("Initializing Callbacks")
     tb_callback = TensorBoard(log_dir=tb_logpath)
     '''
     checkpoint_callback = ModelCheckpoint(filepath='weights.h5'\
@@ -397,18 +522,11 @@ def finetune_model(model, num_classes, first_class, last_class, batch_size, op_t
     '''
 
     termNaN_callback = TerminateOnNaN()
-    save_weights_std_callback = ModelCheckpoint('weights.hdf5', monitor='val_prob_main_categorical_accuracy', verbose=1,
-                                                save_best_only=False,
+    save_weights_std_callback = ModelCheckpoint(model_path + 'weights.hdf5',
+                                                monitor='val_prob_main_categorical_accuracy', verbose=1,
+                                                save_best_only=True,
                                                 save_weights_only=False, mode='max', period=1)
-    callback_list = [tb_callback, termNaN_callback]
-
-    '''
-        If the training each branch individually, increase the number of epochs
-        to be num_classes*num_epochs 
-    '''
-    if train_by_branch == True:
-        each_branch_callback = TrainByBranch(num_classes, num_epochs)
-        num_epochs *= num_classes
+    callback_list = [tb_callback, termNaN_callback, save_weights_std_callback]
 
     if op_type == 'rmsprop':
         '''
@@ -432,43 +550,9 @@ def finetune_model(model, num_classes, first_class, last_class, batch_size, op_t
     # Get training and validation generatorsi
     # print("OCD check: Train IMG Path:", train_img_path)
     # print("OCD check: Val IMG Path:", val_img_path)
-    if multi_outputs is True:
-        train_data, val_data = imagenet_generator_multi(train_img_path, \
-                                                        val_img_path, batch_size=batch_size, \
-                                                        do_augment=augment)
-        # train_data_test, val_data_test = imagenet_generator_multi(train_img_path, \
-        #                                                val_img_path, batch_size=batch_size, val_batch_size=50, \
-        #                                                do_augment=augment)
-
-    else:
-        train_data, val_data = imagenet_generator(train_img_path, val_img_path, \
-                                                  batch_size=batch_size, \
-                                                  do_augment=augment)
-        # train_data_test, val_data_test = imagenet_generator_multi(train_img_path, \
-        #                                                val_img_path, batch_size=batch_size, val_batch_size=50, \
-        #                                                do_augment=augment)
-
-    # print(train_data)
-
-    save_weights_callback = SaveWeightsNumpy(num_classes, model, 'loc_weights.npy', period=2, selected_classes=
-    selected_classes, wnid_labels=wnid_labels, orig_train_img_path=orig_train_img_path,
-                                             new_training_path=new_training_path, orig_val_img_path=orig_val_img_path,
-                                             new_val_path=val_img_path, finetuning=True)
-    callback_list.append(save_weights_callback)
-
-    # Fit and validate model based on generators
-    # print("Fitting Model")
-    model.fit_generator(train_data, epochs=num_epochs, \
-                        steps_per_epoch=int(num_classes * 1300) / batch_size, \
-                        validation_data=val_data, \
-                        validation_steps= \
-                            int((num_classes * 50) / VALIDATION_BATCH_SIZE), \
-                        verbose=1, callbacks=callback_list, workers=20,
-                        use_multiprocessing=True)
-
-    # save_model(model, 'google_csn.h5')
-
-    return model
+    create_dataset(train_data_path=train_img_path, val_data_path=val_img_path, batch_size=batch_size, do_augment=augment,
+                   format=format, tf_record_dir='', val_batch_size=val_batch_size,
+                   image_size=image_size, num_outputs=num_outs)
 
 
 def eval_model(model, num_classes, batch_size, imagenet_path=None,

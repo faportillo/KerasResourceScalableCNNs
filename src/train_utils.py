@@ -503,7 +503,7 @@ def fit_model_tfr(model, num_classes, num_epochs=1000, batch_size=64, val_batch_
     orig_val_img_path = os.path.join(dataset_path, val_path)
     train_img_path = orig_train_img_path
     val_img_path = orig_val_img_path
-    wnid_labels, _ = load_imagenet_meta(os.path.join(dataset_path, \
+    wnid_labels, _ = load_imagenet_meta(os.path.join("/HD1/", \
                                                      meta_path))
     new_training_path = os.path.join(dataset_path, "GARBAGE_TRAIN_")
     new_validation_path = os.path.join(dataset_path, "GARBAGE_VAL_")
@@ -769,7 +769,6 @@ def change_garbage_class_folder(selected_classes, wnid_labels,
         if folder in selected_classes:
             continue
         class_list.append(folder)
-
     train_dst = os.path.join(new_training_path, 'gclass')
 
     # if os.path.exists(train_dst):
@@ -784,7 +783,11 @@ def change_garbage_class_folder(selected_classes, wnid_labels,
         cls_num = random.randint(0, len(class_list) - 1)
         elem = class_list[cls_num]
         train_src = os.path.join(original_training_path, elem.strip('\n'))
-        train_images = os.listdir(train_src)
+        try:
+            train_images = os.listdir(train_src)
+        except Exception, e:
+            continue
+        print("Dir Found")
         img_num = random.randint(0, len(train_images) - 1)
         img = train_images[img_num]
         src_img = os.path.join(train_src, img)
@@ -799,6 +802,7 @@ def change_garbage_class_folder(selected_classes, wnid_labels,
                 os.remove(dst_img)
             os.symlink(src_img, dst_img)
             chosen_elems.append(src_img)
+        print(chosen_elems)
 
 
 def change_garbage_class_folder_val(selected_classes, wnid_labels,

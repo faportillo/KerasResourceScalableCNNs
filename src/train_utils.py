@@ -203,12 +203,13 @@ def imagenet_generator_multi(train_data_path, val_data_path, batch_size, do_augm
     return multi_train_generator, multi_validation_generator
 
 
-def create_multi_generator(data_generator):
+def create_multi_generator(data_generator, batch_size=64):
     while (True):
         data_imgs, data_l = next(data_generator)
+        #print(len(data_imgs))
         yield [data_imgs], [data_l, data_l]
 
-def create_multi_generator_3(data_generator):
+def create_multi_generator_3(data_generator, batch_size=64):
     while (True):
         data_imgs, data_l = next(data_generator)
         yield [data_imgs], [data_l, data_l, data_l]
@@ -364,7 +365,7 @@ def serialize(img, label, num_outputs=2):
     example_proto = tf.train.Example(features=tf.train.Features(feature=data))
     return example_proto.SerializeToString()
 
-def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch_size=50, image_size=227, op_type=None, \
+def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch_size=50, val_period=1, image_size=227, op_type=None, \
               decay_params=None, imagenet_path=None, model_path='./',\
               train_path=None, val_path=None, tb_logpath='./logs', \
               meta_path=None, config_path=None, num_epochs=1000, augment=True, \
@@ -470,7 +471,7 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch
                                                   do_augment=augment, image_size=image_size)
     # print(train_data)
 
-    save_weights_callback = SaveWeightsNumpy(num_classes, model, model_path, period=10, selected_classes=
+    save_weights_callback = SaveWeightsNumpy(num_classes, model, model_path, period=val_period, selected_classes=
     selected_classes, wnid_labels=wnid_labels, orig_train_img_path=orig_train_img_path,
                                              new_training_path=new_training_path, orig_val_img_path=orig_val_img_path,
                                              new_val_path=val_img_path, multi_outputs=multi_outputs)
@@ -483,8 +484,7 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch
                         validation_data=val_data, \
                         validation_steps= \
                             int(50000 / val_batch_size),
-                        validation_freq=10,
-                        max_queue_size = 16,
+                        max_queue_size = 31,
                         verbose=1, callbacks=callback_list, workers=4,
                         use_multiprocessing=False)
 
@@ -783,11 +783,7 @@ def change_garbage_class_folder(selected_classes, wnid_labels,
         cls_num = random.randint(0, len(class_list) - 1)
         elem = class_list[cls_num]
         train_src = os.path.join(original_training_path, elem.strip('\n'))
-        try:
-            train_images = os.listdir(train_src)
-        except Exception, e:
-            continue
-        print("Dir Found")
+        train_images = os.listdir(train_src)
         img_num = random.randint(0, len(train_images) - 1)
         img = train_images[img_num]
         src_img = os.path.join(train_src, img)
@@ -802,7 +798,6 @@ def change_garbage_class_folder(selected_classes, wnid_labels,
                 os.remove(dst_img)
             os.symlink(src_img, dst_img)
             chosen_elems.append(src_img)
-        print(chosen_elems)
 
 
 def change_garbage_class_folder_val(selected_classes, wnid_labels,

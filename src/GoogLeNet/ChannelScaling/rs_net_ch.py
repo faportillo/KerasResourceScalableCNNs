@@ -42,7 +42,7 @@ def LRN(x):
 '''
     Define GoogLeNet Model
 '''
-def rs_net_ch(num_classes, ofms):
+def rs_net_ch(num_classes, ofms, use_aux=True):
     assert len(ofms) == 58, "Number of ofms doesn't match model structure for GoogLeNet"
     '''
         X : input
@@ -384,35 +384,39 @@ def rs_net_ch(num_classes, ofms):
     '''
         Auxiliary Loss
     '''
-    aux_loss_avg_pool = AveragePooling2D(pool_size=(5, 5), strides=(3, 3),\
-                                        name='auxloss/ave_pool')\
-                                        (inception_4b_output)
-    aux_loss_conv = Convolution2D_BN(aux_loss_avg_pool,128, 1, 1,\
-                                     padding='same', \
-                                     activation='relu',\
-                                    name='auxloss/conv')
-    print("AUX LOSS CONV SHAPE"+str(int_shape(aux_loss_conv)))
-    aux_loss_flat = Flatten()(aux_loss_conv)
-    print("AUX FLAT SHAPE"+str(int_shape(aux_loss_flat)))
-    aux_loss_fc = Dense(1024, activation='relu', name=\
-                                                    'auxloss/fc')(aux_loss_flat)
-    aux_drop_fc = Dropout(0.4)(aux_loss_fc)
-    aux_classifier = Dense(num_classes, name= \
-                                      'auxloss/classifier')(aux_drop_fc)
-    aux_classifier_act = Activation('softmax', name='prob_aux')(aux_classifier)
-    classes = []
-    # for c in range(num_branches):
-    #     cls = inception_class_branch(inception_4b_output, branch_num=c)
-    #     classes.append(cls)
+    if use_aux:
+        aux_loss_avg_pool = AveragePooling2D(pool_size=(5, 5), strides=(3, 3),\
+                                            name='auxloss/ave_pool')\
+                                            (inception_4b_output)
+        aux_loss_conv = Convolution2D_BN(aux_loss_avg_pool,128, 1, 1,\
+                                         padding='same', \
+                                         activation='relu',\
+                                        name='auxloss/conv')
+        print("AUX LOSS CONV SHAPE"+str(int_shape(aux_loss_conv)))
+        aux_loss_flat = Flatten()(aux_loss_conv)
+        print("AUX FLAT SHAPE"+str(int_shape(aux_loss_flat)))
+        aux_loss_fc = Dense(1024, activation='relu', name=\
+                                                        'auxloss/fc')(aux_loss_flat)
+        aux_drop_fc = Dropout(0.4)(aux_loss_fc)
+        aux_classifier = Dense(num_classes, name= \
+                                          'auxloss/classifier')(aux_drop_fc)
+        aux_classifier_act = Activation('softmax', name='prob_aux')(aux_classifier)
+        classes = []
+        # for c in range(num_branches):
+        #     cls = inception_class_branch(inception_4b_output, branch_num=c)
+        #     classes.append(cls)
 
-    # main_classifier = Concatenate(axis=-1)(classes)
-    print("AUX OUT SHAPE"+str(int_shape(aux_classifier)))
+        # main_classifier = Concatenate(axis=-1)(classes)
+        print("AUX OUT SHAPE"+str(int_shape(aux_classifier)))
     print("MAIN OUT SHAPE"+str(int_shape(result)))
     main_classifier_act = Activation('softmax', name='prob_main') \
         (result)
 
     print("OUTPUT: " + str(int_shape(main_classifier_act)))
-    googlenet = Model(inputs=input, outputs=[main_classifier_act,aux_classifier_act])
+    if use_aux:
+        googlenet = Model(inputs=input, outputs=[main_classifier_act,aux_classifier_act])
+    else:
+        googlenet = Model(inputs=input, outputs=[main_classifier_act])
 
     return googlenet
 

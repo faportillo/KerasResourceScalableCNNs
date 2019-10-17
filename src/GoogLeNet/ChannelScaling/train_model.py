@@ -43,7 +43,7 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5'''
 
 # MC
-IMAGENET_PATH = '~/HD1/'
+IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'train/'
 VAL_2_PATH = 'val/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
@@ -82,40 +82,47 @@ def main():
     first_class = 0
     last_class = 49
     num_epochs = 1000
-    b_size = 256  # Batch size
-    augment_data = False  # Augment data or not
+    b_size = 64  # Batch size
+    val_b_size = 64
+    validation_period = 10
+    augment_data = True  # Augment data or not
     load_weights = False
-    use_tfrecord_format = True
+    use_tfrecord_format = False
+    use_aux = False
 
-    g_csn = rs_net_ch(num_classes=num_classes, ofms=ofms)  # Create model
+    g_csn = rs_net_ch(num_classes=num_classes, ofms=ofms, use_aux=use_aux)  # Create model
 
     adam = Adam()
     # g_csn.compile(optimizer=adam, loss=[focal_loss(alpha=.25, gamma=2),
     # focal_loss(alpha=.25, gamma=2)], metrics=[categorical_accuracy],loss_weights=[1.0,0.3])
+    if use_aux:
+        g_csn.compile(optimizer=adam, loss=[tu.focal_loss(alpha=.25, gamma=1),
+                                            tu.focal_loss(alpha=.25, gamma=1)],
+                      metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy],
+                      loss_weights=[1.0, 0.3])
+    else:
+        g_csn.compile(optimizer=adam, loss=[tu.focal_loss(alpha=.25, gamma=1)],
+                      metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])
 
-    g_csn.compile(optimizer=adam, loss=[tu.focal_loss(alpha=.25, gamma=1),
-                                        tu.focal_loss(alpha=.25, gamma=1)],
-                  metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy],
-                  loss_weights=[1.0, 0.3])
     if load_weights is True:
         g_csn = tu.load_model_npy(g_csn, 'weights.npy')
 
     # Train model
     if use_tfrecord_format:
         g_csn_trained = tu.fit_model_tfr(g_csn, num_classes, batch_size=b_size, \
-                                         val_batch_size=250, op_type='adam', model_path=model_path, \
+                                         val_batch_size=val_b_size, val_period=validation_period, op_type='adam', model_path=model_path, \
                                          dataset_path=IMAGENET_PATH, train_path=TRAIN_PATH, \
                                          val_path=VAL_2_PATH, format='tfrecord', tfr_path='./', meta_path=META_FILE, \
                                          tb_logpath=model_path + "/logs",
                                          num_epochs=num_epochs, \
-                                         augment=augment_data, multi_outputs=True)
+                                         augment=augment_data, multi_outputs=use_aux)
     else:
-        g_csn_trained = tu.fit_model_tfr(g_csn, num_classes, first_class, last_class, batch_size=b_size, \
-                                     val_batch_size=250, op_type='adam', model_path=model_path,\
+        g_csn_trained = tu.fit_model(g_csn, num_classes, first_class, last_class, batch_size=b_size, \
+                                     val_batch_size=val_b_size, val_period=validation_period, op_type='adam', model_path=model_path,\
                                      imagenet_path=IMAGENET_PATH, train_path=TRAIN_PATH, \
                                      val_path=VAL_2_PATH, meta_path=META_FILE, \
                                      tb_logpath=model_path+"/logs", config_path=CONFIG_PATH, num_epochs=num_epochs, \
-                                     augment=augment_data, multi_outputs=True)
+                                     augment=augment_data, multi_outputs=use_aux)
 
 
     shutil.move("selected_dirs.txt", model_path)

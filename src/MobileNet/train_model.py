@@ -51,11 +51,13 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5
 
 def main():
-    model_path = './L15/'
+    model_path = './L5_25p_v1/'
     if not os.path.exists(model_path):
         os.makedirs(model_path)
-
-    ofms = [16, 32, 43, 43, 88, 88, 125, 125, 238, 238, 15]
+    # 5 classes
+    ofms = [32, 43, 107, 116, 197, 197, 197, 256, 512, 512, 5]
+    # 15 classes
+    #ofms = [32, 43, 107, 116, 213, 213, 213, 256, 512, 512, 15]
     print(len(ofms))
     with open(model_path + '/ofms.txt', 'w') as f:
         for ofm in ofms:
@@ -66,8 +68,12 @@ def main():
     last_class = 49
     num_epochs = 1000
     b_size = 64  # Batch size
+    val_b_size = 64
+    validation_period = 10
     augment_data = True  # Augment data or not
     load_weights = False
+    use_tfrecord_format = False
+    use_aux = False
 
     g_csn = rs_net_ch(num_classes=num_classes, ofms=ofms)  # Create model
 
@@ -81,12 +87,24 @@ def main():
         g_csn = tu.load_model_npy(g_csn, 'weights.npy')
 
     # Train model
-    g_csn_trained = tu.fit_model(g_csn, num_classes, first_class, last_class, batch_size=b_size, \
-                                 op_type='adam', model_path=model_path,\
-                                 imagenet_path=IMAGENET_PATH, train_path=TRAIN_PATH, \
-                                 val_path=VAL_2_PATH, meta_path=META_FILE, \
-                                 tb_logpath=model_path+"/logs", config_path=CONFIG_PATH, num_epochs=num_epochs, \
-                                 augment=augment_data, multi_outputs=False)
+    if use_tfrecord_format:
+        g_csn_trained = tu.fit_model_tfr(g_csn, num_classes, batch_size=b_size, \
+                                         val_batch_size=val_b_size, val_period=validation_period, op_type='adam',
+                                         model_path=model_path, \
+                                         dataset_path=IMAGENET_PATH, train_path=TRAIN_PATH, \
+                                         val_path=VAL_2_PATH, format='tfrecord', tfr_path='./', meta_path=META_FILE, \
+                                         tb_logpath=model_path + "/logs",
+                                         num_epochs=num_epochs, \
+                                         augment=augment_data, multi_outputs=use_aux)
+    else:
+        g_csn_trained = tu.fit_model(g_csn, num_classes, first_class, last_class, batch_size=b_size, \
+                                     val_batch_size=val_b_size, val_period=validation_period, op_type='adam',
+                                     model_path=model_path, \
+                                     imagenet_path=IMAGENET_PATH, train_path=TRAIN_PATH, \
+                                     val_path=VAL_2_PATH, meta_path=META_FILE, \
+                                     tb_logpath=model_path + "/logs", config_path=CONFIG_PATH,
+                                     num_epochs=num_epochs, \
+                                     augment=augment_data, multi_outputs=use_aux)
 
     shutil.move("selected_dirs.txt", model_path)
     '''shutil.move("weights.npy", model_path)

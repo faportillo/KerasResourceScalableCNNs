@@ -368,7 +368,7 @@ def serialize(img, label, num_outputs=2):
 def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch_size=50, val_period=1, image_size=227, op_type=None, \
               decay_params=None, imagenet_path=None, model_path='./',\
               train_path=None, val_path=None, tb_logpath='./logs', \
-              meta_path=None, config_path=None, num_epochs=1000, augment=True, \
+              meta_path=None, config_path=None, symlink_prefix='GARBAGE', num_epochs=1000, augment=True, \
               multi_outputs=False, clrcm_params=None, train_by_branch=False, num_outs=2):
     '''
     :param model: Keras model
@@ -397,8 +397,8 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch
     val_img_path = orig_val_img_path
     wnid_labels, _ = load_imagenet_meta(os.path.join(imagenet_path, \
                                                      meta_path))
-    new_training_path = os.path.join(imagenet_path, "GARBAGE_TRAIN_")
-    new_validation_path = os.path.join(imagenet_path, "GARBAGE_VAL_")
+    new_training_path = os.path.join(imagenet_path, symlink_prefix+"_TRAIN_")
+    new_validation_path = os.path.join(imagenet_path, symlink_prefix+"_VAL_")
     selected_classes = create_garbage_links(num_classes, wnid_labels, train_img_path, \
                                             new_training_path, val_img_path, new_validation_path)
     create_garbage_class_folder(selected_classes, wnid_labels,
@@ -486,7 +486,7 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch
                             int(50000 / val_batch_size),
                         validation_freq=10,
                         max_queue_size = 31,
-                        verbose=1, callbacks=callback_list, workers=6,
+                        verbose=1, callbacks=callback_list, workers=4,
                         use_multiprocessing=False)
 
     save_model(model, model_path+'rs_model_final.h5')

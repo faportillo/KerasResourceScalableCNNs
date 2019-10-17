@@ -480,12 +480,13 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch
     # Fit and validate model based on generators
     # print("Fitting Model")
     model.fit_generator(train_data, epochs=num_epochs, \
-                        steps_per_epoch=int(num_classes * 1300*8) / batch_size, \
+                        steps_per_epoch=int((num_classes * 1300)+(1300*8)) / batch_size, \
                         validation_data=val_data, \
                         validation_steps= \
                             int(50000 / val_batch_size),
+                        validation_freq=10,
                         max_queue_size = 31,
-                        verbose=1, callbacks=callback_list, workers=4,
+                        verbose=1, callbacks=callback_list, workers=6,
                         use_multiprocessing=False)
 
     save_model(model, model_path+'rs_model_final.h5')

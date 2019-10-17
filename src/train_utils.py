@@ -1283,7 +1283,7 @@ class SaveWeightsNumpy(Callback):
         self.acc_sum = 0.0
 
     def on_epoch_end(self, epoch, logs={}):
-        if epoch == self.period:
+        if (epoch % self.period) == 0:
             print("Computing local validation accuracy...")
             # print("\nOverall Results: ")
             # print(self.orig_model.evaluate_generator(self.val_data_test, steps= \

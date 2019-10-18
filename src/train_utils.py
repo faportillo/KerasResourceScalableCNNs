@@ -484,7 +484,7 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch
                         validation_data=val_data, \
                         validation_steps= \
                             int(50000 / val_batch_size),
-                        validation_freq=10,
+                        validation_freq=val_period,
                         max_queue_size = 31,
                         verbose=1, callbacks=callback_list, workers=4,
                         use_multiprocessing=False)
@@ -1283,7 +1283,8 @@ class SaveWeightsNumpy(Callback):
         self.acc_sum = 0.0
 
     def on_epoch_end(self, epoch, logs={}):
-        if ((epoch-1) % self.period) == 0 and epoch > 1:
+        print("Epoch: " + str(epoch))
+        if ((epoch+1) % self.period) == 0 and epoch > 1:
             print("Computing local validation accuracy...")
             # print("\nOverall Results: ")
             # print(self.orig_model.evaluate_generator(self.val_data_test, steps= \

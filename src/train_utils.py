@@ -419,7 +419,7 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch
     '''
 
     termNaN_callback = TerminateOnNaN()
-    save_weights_std_callback = ModelCheckpoint(model_path+'weights.hdf5', monitor='val_prob_main_categorical_accuracy', verbose=1,
+    save_weights_std_callback = ModelCheckpoint(model_path+'weights.hdf5', monitor='val_categorical_accuracy', verbose=1,
                                                 save_best_only=True,
                                                 save_weights_only=False, mode='max', period=1)
     callback_list = [tb_callback, termNaN_callback, save_weights_std_callback]

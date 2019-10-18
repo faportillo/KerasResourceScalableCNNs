@@ -1335,8 +1335,8 @@ class SaveWeightsNumpy(Callback):
             weights = self.model.get_weights()
             np.save(self.file_path + 'weights.npy', weights)
             # Check if sum of both global and local accuracy is the highest.
-            if local_acc is not None and logs.get('val_prob_main_categorical_accuracy') is not None:
-                global_local_sum = local_acc + logs.get('val_prob_main_categorical_accuracy')
+            if local_acc is not None and logs.get('val_categorical_accuracy') is not None:
+                global_local_sum = local_acc + logs.get('val_categorical_accuracy')
     
                 print("\nglobal_local_sum: " + str(global_local_sum))
                 if global_local_sum > self.acc_sum:

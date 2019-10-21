@@ -11,7 +11,7 @@ from PIL import Image
 import random
 import os
 import os.path as path
-p = path.abspath(path.join(__file__, "../../../.."))
+p = path.abspath(path.join(__file__, "../../.."))
 sys.path.append(p)
 import src.train_utils as tu
 import src.eval_utils as eu
@@ -36,24 +36,24 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5'''
 
 # Pitagyro
-IMAGENET_PATH = '/HD1/'
+'''IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'ILSVRC2012_img_train/'
 VAL_2_PATH = 'Val_2/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5
+VALID_TIME_MINUTE = 5'''
 
 # MC
-'''IMAGENET_PATH = '/HD1/'
+IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'train/'
 VAL_2_PATH = 'val/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5'''
+VALID_TIME_MINUTE = 5
 
 def main():
 
-    model_path = './L10_linear/'
+    model_path = './L5_25p_v1/'
 
     # Load ofms list from .txt file
     ofms = []
@@ -62,7 +62,7 @@ def main():
             ofm = line[:-1]
             ofms.append(int(ofm))
 
-    num_classes = ofms[57]  # number of classes
+    num_classes = ofms[-1]  # number of classes
 
     # Create model
     model = rs_net_ch(num_classes=num_classes, ofms=ofms)

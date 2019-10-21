@@ -195,19 +195,36 @@ def get_global_accuracy(model, num_classes, imagnenet_path, val_path, meta_file,
                 continue
             img = img.reshape(1, 227, 227, 3)
             pred = model.predict(img)
-            print(np.argmax(pred[0]))
-            print(np.argmax(pred[1]))
-            total_imgs += 1
+            print((pred.shape))
+            if len(pred.shape) == 3 or len(pred.shape) == 4:
+                print(np.argmax(pred[0]))
+                print(np.argmax(pred[1]))
+                total_imgs += 1
 
-            if np.argmax(pred[0]) > 0:
-                pred_class = 1
+                if np.argmax(pred[0]) > 0:
+                    pred_class = 1
+                else:
+                    pred_class = 0
+                if pred_class == global_index:
+                    correct_global_imgs += 1
+
+                if raw_acc and (np.argmax(pred[0]) == correct_index):
+                    correct_raw_imgs += 1
+            elif len(pred.shape) == 2:
+                print(np.argmax(pred))
+                total_imgs += 1
+
+                if np.argmax(pred) > 0:
+                    pred_class = 1
+                else:
+                    pred_class = 0
+                if pred_class == global_index:
+                    correct_global_imgs += 1
+
+                if raw_acc and (np.argmax(pred) == correct_index):
+                    correct_raw_imgs += 1
             else:
-                pred_class = 0
-            if pred_class == global_index:
-                correct_global_imgs += 1
-
-            if raw_acc and (np.argmax(pred[0]) == correct_index):
-                correct_raw_imgs += 1
+                print("Invalid prediction shape...")
 
             print("[Raw] Total: " + str(total_imgs) + ", correct: " + \
                   str(correct_raw_imgs) + ", GLOBAL ACC:" + str(correct_raw_imgs * 1.0 / total_imgs))

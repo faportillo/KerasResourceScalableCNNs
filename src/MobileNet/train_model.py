@@ -51,13 +51,15 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5
 
 def main():
-    model_path = './L5_25p_v1/'
+    model_path = './L10_25p_v1/'
     if not os.path.exists(model_path):
         os.makedirs(model_path)
     # 5 classes
-    ofms = [32, 43, 107, 116, 197, 197, 197, 256, 512, 512, 5]
+    # ofms = [32, 43, 107, 116, 197, 197, 197, 256, 512, 512, 5]
+    # 10 classes
+    ofms = [32, 64, 116, 116, 197, 197, 213, 301, 569, 569, 10]
     # 15 classes
-    #ofms = [32, 43, 107, 116, 213, 213, 213, 256, 512, 512, 15]
+    # ofms = [32, 43, 107, 116, 213, 213, 213, 256, 512, 512, 15]
     print(len(ofms))
     with open(model_path + '/ofms.txt', 'w') as f:
         for ofm in ofms:

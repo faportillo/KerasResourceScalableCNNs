@@ -735,7 +735,7 @@ def predict_model(model, num_classes, batch_size, first_class=None, last_class=N
 
 def load_model_npy(model, filename):
     print("Loading weights from: " + str(filename))
-    weights = np.load(filename, encoding="latin1")
+    weights = np.load(filename, encoding="latin1", allow_pickle=True)
 
     model.set_weights(weights)
     print("WEIGHTS LOADED")

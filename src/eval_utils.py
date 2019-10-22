@@ -77,7 +77,7 @@ def get_local_accuracy(model, imagnenet_path, val_path, selected_dirs_file):
     local_acc = correct_imgs * 1.0 / total_imgs
     return local_acc
 
-def get_raw_accuracy(model, num_classes, imagnenet_path, val_path, meta_file, selected_dirs_file):
+def get_raw_accuracy(model, num_classes, imagnenet_path, val_path, meta_file, selected_dirs_file, symlink_prefix='GARBAGE'):
     selected_dirs = []
     selected_dirs.append('')
     f = open(selected_dirs_file, 'r')
@@ -87,7 +87,7 @@ def get_raw_accuracy(model, num_classes, imagnenet_path, val_path, meta_file, se
     f.close()
 
     val_img_path = os.path.join(imagnenet_path, val_path)
-    global_validation_path = os.path.join(imagnenet_path, 'GARBAGE_VAL_')
+    global_validation_path = os.path.join(imagnenet_path, symlink_prefix+"_VAL_")
     wnid_labels, _ = tu.load_imagenet_meta(os.path.join(imagnenet_path, meta_file))
     selected_classes = tu.create_garbage_links(num_classes, wnid_labels, '', '',
                                                val_img_path, global_validation_path)
@@ -139,7 +139,7 @@ def get_raw_accuracy(model, num_classes, imagnenet_path, val_path, meta_file, se
     raw_acc = correct_imgs * 1.0 / total_imgs
     return raw_acc
 
-def get_global_accuracy(model, num_classes, imagnenet_path, val_path, meta_file, selected_dirs_file, raw_acc=True):
+def get_global_accuracy(model, num_classes, imagnenet_path, val_path, meta_file, selected_dirs_file, raw_acc=True, symlink_prefix='GARBAGE'):
     selected_dirs = []
     selected_dirs.append('')
     f = open(selected_dirs_file, 'r')
@@ -149,7 +149,7 @@ def get_global_accuracy(model, num_classes, imagnenet_path, val_path, meta_file,
     f.close()
 
     val_img_path = os.path.join(imagnenet_path, val_path)
-    global_validation_path = os.path.join(imagnenet_path, 'GARBAGE_VAL_')
+    global_validation_path = os.path.join(imagnenet_path, symlink_prefix+"_VAL_")
     wnid_labels, _ = tu.load_imagenet_meta(os.path.join(imagnenet_path, meta_file))
     selected_classes = tu.create_garbage_links(num_classes, wnid_labels, '', '',
                                                val_img_path, global_validation_path)

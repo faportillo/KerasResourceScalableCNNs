@@ -195,8 +195,7 @@ def get_global_accuracy(model, num_classes, imagnenet_path, val_path, meta_file,
                 continue
             img = img.reshape(1, 227, 227, 3)
             pred = model.predict(img)
-            print((pred.shape))
-            if len(pred.shape) == 3 or len(pred.shape) == 4:
+            if isinstance(pred, list): # len(pred.shape) == 3 or len(pred.shape) == 4:
                 print(np.argmax(pred[0]))
                 print(np.argmax(pred[1]))
                 total_imgs += 1
@@ -210,7 +209,7 @@ def get_global_accuracy(model, num_classes, imagnenet_path, val_path, meta_file,
 
                 if raw_acc and (np.argmax(pred[0]) == correct_index):
                     correct_raw_imgs += 1
-            elif len(pred.shape) == 2:
+            elif not isinstance(pred, list) and len(pred.shape) == 2:
                 print(np.argmax(pred))
                 total_imgs += 1
 

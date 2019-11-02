@@ -85,6 +85,24 @@ def main():
         model = rs_net_ch(num_classes=num_classes, ofms=ofms)
         model = tu.load_model_npy(model, model_path + 'max_l_g_weights.npy')
 
+    # Eval model before pruning to record data
+    local_accuracy = eu.get_local_accuracy(model, IMAGENET_PATH,
+                                           VAL_2_PATH, model_path + 'selected_dirs.txt')
+    global_acc, raw_acc = eu.get_global_accuracy(model, num_classes, IMAGENET_PATH,
+                                                 VAL_2_PATH, META_FILE,
+                                                 model_path + 'selected_dirs.txt',
+                                                 raw_acc=True)
+    print("\nRaw Accuracy: " + str(raw_acc))
+    print("Local Accuracy: " + str(local_accuracy))
+    print("Global Accuracy: " + str(global_acc))
+    print("\nWriting results to file...")
+    with open(model_path + 'model_accuracy.txt', 'w') as f:
+        f.write('Machine: pitagyro')
+        f.write(model_path)
+        f.write('Local Accuracy: %f\n' % local_accuracy)
+        f.write('Global Accuracy: %f\n' % global_acc)
+        f.write('Raw Accuracy: %f\n' % raw_acc)
+
     pruned_model = pu.prune_model(model,
                                   num_classes=num_classes,
                                   batch_size=64,

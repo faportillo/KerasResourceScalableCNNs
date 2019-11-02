@@ -27,7 +27,7 @@ from tensorflow.python.keras.optimizers import Adam, RMSprop
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.metrics import top_k_categorical_accuracy,categorical_accuracy
 from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint, \
-    Callback, LearningRateScheduler, TerminateOnNaN
+    Callback, LearningRateScheduler, TerminateOnNaN, EarlyStopping
 
 import tensorflow_model_optimization as tfmot
 from tensorflow_model_optimization.sparsity import keras as sparsity
@@ -90,6 +90,7 @@ def prune_model(model, model_type='googlenet_rs',
                 num_classes=1000,
                 batch_size=64,
                 val_batch_size=50,
+                val_period=1,
                 loss_type='focal',
                 op_type='adam',
                 imagenet_path=None,
@@ -98,10 +99,12 @@ def prune_model(model, model_type='googlenet_rs',
                 val_path=None,
                 tb_logpath='./logs',
                 meta_path=None,
+                symlink_prefix='GARBAGE',
                 num_epochs=1000,
                 augment=True,
                 multi_outputs=False,
-                garbage_multiplier=1):
+                garbage_multiplier=1,
+                workers=1):
 
     '''
         Prune a resource-scalable model
@@ -142,8 +145,8 @@ def prune_model(model, model_type='googlenet_rs',
             exit(1)
 
     if model_type == 'googlenet_rs' or model_type == 'mobilenet_rs':
-        new_training_path = os.path.join(imagenet_path, "GARBAGE_TRAIN_")
-        new_validation_path = os.path.join(imagenet_path, "GARBAGE_VAL_")
+        new_training_path = os.path.join(imagenet_path, symlink_prefix + "_TRAIN_")
+        new_validation_path = os.path.join(imagenet_path, symlink_prefix + "_VAL_")
         selected_classes = tu.create_garbage_links(num_classes, wnid_labels, train_img_path, \
                                                 new_training_path, val_img_path, new_validation_path)
         tu.create_garbage_class_folder(selected_classes, wnid_labels,
@@ -155,9 +158,35 @@ def prune_model(model, model_type='googlenet_rs',
     tb_callback = TensorBoard(log_dir=tb_logpath)
     termNaN_callback = TerminateOnNaN()
 
+    early_stop = EarlyStopping(monitor='val_categorical_accuracy',
+                               mode='max',
+                               verbose=1,
+                               patience=8,
+                               min_delta=1)
+    save_weights_std_callback = ModelCheckpoint(model_path + 'best_pruned_global_weights.hdf5',
+                                                monitor='val_categorical_accuracy',
+                                                verbose=1,
+                                                save_best_only=True,
+                                                save_weights_only=False,
+                                                mode='max',
+                                                period=val_period)
+    save_weights_callback = tu.SaveWeightsNumpy(num_classes,
+                                             model, model_path,
+                                             period=val_period,
+                                             selected_classes=selected_classes,
+                                             wnid_labels=wnid_labels,
+                                             orig_train_img_path=orig_train_img_path,
+                                             new_training_path=new_training_path,
+                                             orig_val_img_path=orig_val_img_path,
+                                             new_val_path=val_img_path,
+                                             weight_filename='pruned_weights.npy',
+                                             best_l_g_filename='pruned_max_l_g_weights.npy',
+                                             best_loc_filename='pruned_loc_weights.npy',
+                                             multi_outputs=multi_outputs)
     callbacks = [tb_callback, termNaN_callback,
                  sparsity.UpdatePruningStep(),
-                 sparsity.PruningSummaries(log_dir=tb_logpath, profile_batch=0)]
+                 sparsity.PruningSummaries(log_dir=tb_logpath, profile_batch=0),
+                 early_stop, save_weights_callback, save_weights_std_callback]
 
     if op_type == 'rmsprop':
         '''
@@ -252,15 +281,17 @@ def prune_model(model, model_type='googlenet_rs',
         train_data, val_data = tu.imagenet_generator(train_img_path, \
                                                         val_img_path, batch_size=batch_size, \
                                                         do_augment=augment)
-    print("Fitting model")
-    pruned_model.fit_generator(train_data, epochs=num_epochs, \
+    print("Pruning model")
+    if multi_outputs:
+        use_multiproc = True
+    else:
+        use_multiproc = False
+    pruned_model.fit_generator(train_data, epochs=num_epochs,
                         steps_per_epoch=int(((num_classes-1) * 1300)+(1300*garbage_multiplier)) / batch_size, \
-                        validation_data=val_data, \
-                        validation_steps= \
-                            int(50000 / val_batch_size), \
-                        verbose=2, callbacks=callbacks, workers=1,
-                        use_multiprocessing=False)
+                        validation_data=val_data,
+                        validation_steps=
+                            int(50000 / val_batch_size),
+                        verbose=2, callbacks=callbacks, workers=workers,
+                        use_multiprocessing=use_multiproc)
 
     return pruned_model
-
-

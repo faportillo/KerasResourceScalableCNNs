@@ -365,11 +365,28 @@ def serialize(img, label, num_outputs=2):
     example_proto = tf.train.Example(features=tf.train.Features(feature=data))
     return example_proto.SerializeToString()
 
-def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch_size=50, val_period=1, image_size=227, op_type=None, \
-              decay_params=None, imagenet_path=None, model_path='./',\
-              train_path=None, val_path=None, tb_logpath='./logs', \
-              meta_path=None, config_path=None, symlink_prefix='GARBAGE', num_epochs=1000, augment=True, \
-              multi_outputs=False, clrcm_params=None, train_by_branch=False, num_outs=2):
+def fit_model(model, num_classes, first_class, last_class, batch_size,
+              val_batch_size=50,
+              val_period=1,
+              image_size=227,
+              op_type=None,
+              decay_params=None,
+              imagenet_path=None,
+              model_path='./',
+              train_path=None,
+              val_path=None,
+              tb_logpath='./logs',
+              meta_path=None,
+              config_path=None,
+              symlink_prefix='GARBAGE',
+              num_epochs=1000,
+              augment=True,
+              multi_outputs=False,
+              clrcm_params=None,
+              train_by_branch=False,
+              num_outs=2,
+              garbage_multiplier=1,
+              workers=1):
     '''
     :param model: Keras model
     :param num_classes:
@@ -419,9 +436,13 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch
     '''
 
     termNaN_callback = TerminateOnNaN()
-    save_weights_std_callback = ModelCheckpoint(model_path+'weights.hdf5', monitor='val_categorical_accuracy', verbose=1,
+    save_weights_std_callback = ModelCheckpoint(model_path+'weights.hdf5',
+                                                monitor='val_categorical_accuracy',
+                                                verbose=1,
                                                 save_best_only=True,
-                                                save_weights_only=False, mode='max', period=1)
+                                                save_weights_only=False,
+                                                mode='max',
+                                                period=val_period)
     callback_list = [tb_callback, termNaN_callback, save_weights_std_callback]
 
     '''
@@ -479,15 +500,20 @@ def fit_model(model, num_classes, first_class, last_class, batch_size, val_batch
 
     # Fit and validate model based on generators
     # print("Fitting Model")
+    if multi_outputs:
+        use_multiproc = True
+    else:
+        use_multiproc = False
+
     model.fit_generator(train_data, epochs=num_epochs, \
-                        steps_per_epoch=int(((num_classes-1) * 1300)+(1300*8)) / batch_size, \
+                        steps_per_epoch=int(((num_classes-1) * 1300)+(1300*garbage_multiplier)) / batch_size, \
                         validation_data=val_data, \
                         validation_steps= \
                             int(50000 / val_batch_size),
                         validation_freq=val_period,
                         max_queue_size = 31,
-                        verbose=1, callbacks=callback_list, workers=4,
-                        use_multiprocessing=False)
+                        verbose=1, callbacks=callback_list, workers=workers,
+                        use_multiprocessing=use_multiproc)
 
     save_model(model, model_path+'rs_model_final.h5')
 
@@ -1260,8 +1286,22 @@ class OneCycle(Callback):
 
 
 class SaveWeightsNumpy(Callback):
-    def __init__(self, num_classes, orig_model, file_path, period, selected_classes, wnid_labels,
-                 orig_train_img_path, new_training_path, orig_val_img_path, new_val_path, finetuning=False, multi_outputs=True):
+    def __init__(self, num_classes,
+                 orig_model,
+                 file_path,
+                 period,
+                 selected_classes,
+                 wnid_labels,
+                 orig_train_img_path,
+                 new_training_path,
+                 orig_val_img_path,
+                 new_val_path,
+                 weight_filename='weights.npy',
+                 best_l_g_filename='max_l_g_weights.npy',
+                 best_loc_filename='loc_weights.npy',
+                 finetuning=False,
+                 multi_outputs=True):
+
         super(SaveWeightsNumpy, self).__init__()
         self.num_classes = num_classes
         self.file_path = file_path
@@ -1272,9 +1312,9 @@ class SaveWeightsNumpy(Callback):
         self.new_training_path = new_training_path
         self.orig_val_img_path = orig_val_img_path
         self.new_val_path = new_val_path
-        # self.val_data_test = val_data_test
-        # self.val_data_test2 = val_data_test2
-        # self.testNet = ConvNet(file_path, num_classes, 50)
+        self.weight_filename = weight_filename
+        self.best_l_g_filename = best_l_g_filename
+        self.best_loc_filename=best_loc_filename
         self.orig_model = orig_model
         self.finetuning = finetuning
         self.multi_outputs = multi_outputs
@@ -1333,7 +1373,7 @@ class SaveWeightsNumpy(Callback):
             #if epoch % self.period == 0 and epoch >= self.period:
             print("Saving weights to: " + str(self.file_path))
             weights = self.model.get_weights()
-            np.save(self.file_path + 'weights.npy', weights)
+            np.save(self.file_path + self.weight_filename, weights)
             # Check if sum of both global and local accuracy is the highest.
         
             global_local_sum = local_acc + logs.get('val_categorical_accuracy')
@@ -1342,11 +1382,11 @@ class SaveWeightsNumpy(Callback):
             if global_local_sum > self.acc_sum:
                 self.acc_sum = global_local_sum
                 print("Has highest acc_sum. Saving to max_l_g_weights.npy...\n")
-                np.save(self.file_path + 'max_l_g_weights.npy', weights)
+                np.save(self.file_path + self.best_l_g_filename, weights)
             if local_acc >= self.loc_acc:
                 self.loc_acc = local_acc
                 print("Has high local acc. Saving weights now")
-                np.save(self.file_path + 'loc_weights.npy', weights)
+                np.save(self.file_path + self.best_loc_filename, weights)
     
     
                 '''if round(local_acc, 3) >= 0.770 and self.finetuning:

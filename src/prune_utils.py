@@ -14,6 +14,9 @@ import re
 from PIL import Image
 from operator import itemgetter
 from collections import OrderedDict
+from shutil import copyfile
+from sys import exit
+from os import path
 import random
 from tensorflow.python.keras.layers import Input, Dense, Convolution2D, \
     MaxPooling2D, AveragePooling2D, ZeroPadding2D, Dropout, Flatten, Reshape, \
@@ -83,10 +86,22 @@ def prune_by_std(model, s=0.25):
 
     return model, total_pruned_weights
 
-def prune_model(model, model_type='resource_scalable', num_classes=1000, batch_size=64, val_batch_size=50, loss_type='focal', op_type='adam',
-                imagenet_path=None, model_path='./',
-                train_path=None, val_path=None, tb_logpath='./logs',
-                meta_path=None, num_epochs=1000, augment=True):
+def prune_model(model, model_type='googlenet_rs',
+                num_classes=1000,
+                batch_size=64,
+                val_batch_size=50,
+                loss_type='focal',
+                op_type='adam',
+                imagenet_path=None,
+                model_path='./',
+                train_path=None,
+                val_path=None,
+                tb_logpath='./logs',
+                meta_path=None,
+                num_epochs=1000,
+                augment=True,
+                multi_outputs=False,
+                garbage_multiplier=1):
 
     '''
         Prune a resource-scalable model
@@ -113,7 +128,20 @@ def prune_model(model, model_type='resource_scalable', num_classes=1000, batch_s
     val_img_path = orig_val_img_path
     wnid_labels, _ = tu.load_imagenet_meta(os.path.join(imagenet_path, \
                                                      meta_path))
-    if model_type == 'resource_scalable':
+
+    # copy selected_dirs.txt to current directory if not already in it
+    if not path.exists('selected_dirs.txt'):
+        try:
+            copyfile(model_path + 'selected_dirs.txt', './')
+            print("File copied from %s" % model_path)
+        except IOError as e:
+            print("Unable to copy file. %s" % e)
+            exit(1)
+        except:
+            print("Unexpected error:", sys.exc_info())
+            exit(1)
+
+    if model_type == 'googlenet_rs' or model_type == 'mobilenet_rs':
         new_training_path = os.path.join(imagenet_path, "GARBAGE_TRAIN_")
         new_validation_path = os.path.join(imagenet_path, "GARBAGE_VAL_")
         selected_classes = tu.create_garbage_links(num_classes, wnid_labels, train_img_path, \
@@ -150,7 +178,7 @@ def prune_model(model, model_type='resource_scalable', num_classes=1000, batch_s
         # print ('Invalid Optimizer. Exiting...')
         exit()
 
-    end_step = np.ceil(1.0 * (1300 * num_classes) / batch_size).astype(np.int32) * num_epochs
+    end_step = np.ceil(1.0 * ((num_classes-1) * 1300)+(1300*garbage_multiplier) / batch_size).astype(np.int32) * num_epochs
     orig_stdout = sys.stdout
     f = open('orig_model_summary.txt', 'w')
     sys.stdout = f
@@ -161,27 +189,54 @@ def prune_model(model, model_type='resource_scalable', num_classes=1000, batch_s
     new_pruning_params = {'pruning_schedule': sparsity.PolynomialDecay(initial_sparsity=0.0,
                                                                        final_sparsity=0.50,
                                                                        begin_step=0,
-                                                                       end_step=end_step)}
+                                                                       end_step=end_step,
+                                                                       frequency=100)}
 
     pruned_model = sparsity.prune_low_magnitude(model, **new_pruning_params)
     print("Compiling model")
-    if model_type == 'resource_scalable':
-        if loss_type == 'focal':
-            loss1 = tu.focal_loss(alpha=.25, gamma=2)
-            loss2 = tu.focal_loss(alpha=.25, gamma=2)
+    if model_type == 'googlenet_rs': #resource-scalable googlenet
+        if multi_outputs:
+            if loss_type == 'focal':
+                loss1 = tu.focal_loss(alpha=.25, gamma=2)
+                loss2 = tu.focal_loss(alpha=.25, gamma=2)
+            else:
+                loss1 = tu.dual_loss(alpha=.25, gamma=2)
+                loss2 = tu.dual_loss(alpha=.25, gamma=2)
+
+            train_data, val_data = tu.imagenet_generator_multi(train_img_path, \
+                                                            val_img_path, batch_size=batch_size, \
+                                                            do_augment=augment)
+
+            pruned_model.compile(optimizer=op_type, loss=[loss1, loss2],
+                          metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy],
+                          loss_weights=[1.0, 0.3])
         else:
-            loss1 = tu.dual_loss(alpha=.25, gamma=2)
-            loss2 = tu.dual_loss(alpha=.25, gamma=2)
+            if loss_type == 'focal':
+                loss = tu.focal_loss(alpha=.25, gamma=2)
+            else:
+                loss = tu.dual_loss(alpha=.25, gamma=2)
 
-        train_data, val_data = tu.imagenet_generator_multi(train_img_path, \
-                                                        val_img_path, batch_size=batch_size, \
-                                                        do_augment=augment)
+            train_data, val_data = tu.imagenet_generator(train_img_path, \
+                                                               val_img_path,
+                                                               batch_size=batch_size, \
+                                                               do_augment=augment)
+            pruned_model.compile(optimizer=op_type, loss=[loss],
+                                 metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])
 
-        pruned_model.compile(optimizer=op_type, loss=[loss1, loss2],
-                      metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy],
-                      loss_weights=[1.0, 0.3])
+    elif model_type == 'mobilenet_rs':
+        if loss_type == 'focal':
+            loss = tu.focal_loss(alpha=.25, gamma=2)
+        else:
+            loss = tu.dual_loss(alpha=.25, gamma=2)
 
-    elif model_type == 'googlenet':
+        train_data, val_data = tu.imagenet_generator(train_img_path, \
+                                                     val_img_path,
+                                                     batch_size=batch_size, \
+                                                     do_augment=augment)
+        pruned_model.compile(optimizer=op_type, loss=[loss],
+                             metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])
+
+    elif model_type == 'googlenet': #Vanilla googlenet for 1000 classes
         pruned_model.compile(optimizer=op_type,
                       loss='categorical_crossentropy',
                       metrics=['accuracy'])
@@ -199,10 +254,10 @@ def prune_model(model, model_type='resource_scalable', num_classes=1000, batch_s
                                                         do_augment=augment)
     print("Fitting model")
     pruned_model.fit_generator(train_data, epochs=num_epochs, \
-                        steps_per_epoch=int(num_classes * 1300) / batch_size, \
+                        steps_per_epoch=int(((num_classes-1) * 1300)+(1300*garbage_multiplier)) / batch_size, \
                         validation_data=val_data, \
                         validation_steps= \
-                            int((num_classes * 50) / val_batch_size), \
+                            int(50000 / val_batch_size), \
                         verbose=2, callbacks=callbacks, workers=1,
                         use_multiprocessing=False)
 

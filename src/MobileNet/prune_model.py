@@ -51,9 +51,21 @@ VALID_TIME_MINUTE = 5'''
 
 def main():
     model_path = '../VanillaGoogLeNet'
-    model_type = 'googlenet'
+    '''
+        Model options (*note, 'rs' stands for resource-scalable version of model:
+        googlenet_rs
+        mobilenet_rs
+        googlenet
+        mobilenet
+    '''
+    model_type = 'mobilenet_rs'
 
-    if model_type == 'resource_scalable':
+
+    if model_type == 'googlenet':
+        model = vgn.create_googlenet(model_path + '/googlenet_weights.h5')
+    elif model_type == 'mobilenet':
+        return # put mobilenet code here
+    else: #some form of resource-scalable cnn
         # Load ofms list from .txt file
         ofms = []
         with open(model_path + '/ofms.txt') as f:
@@ -62,8 +74,6 @@ def main():
                 ofms.append(ofm)
         model = rs_net_ch(num_classes=num_classes, ofms=ofms)
         model = tu.load_model_npy(model, model_path + '/weights.npy')
-    elif model_type == 'googlenet':
-        model = vgn.create_googlenet(model_path + '/googlenet_weights.h5')
 
     epochs = 64
 
@@ -73,7 +83,8 @@ def main():
                                   meta_path=META_FILE,
                                   tb_logpath=model_path+"/logs",
                                   config_path=CONFIG_PATH,
-                                  num_epochs=epochs)
+                                  num_epochs=epochs,
+                                  garbage_multiplier=8)
 
     local_accuracy = eu.get_local_accuracy(pruned_model, IMAGENET_PATH,
                                            VAL_2_PATH, model_path + '/selected_dirs.txt')

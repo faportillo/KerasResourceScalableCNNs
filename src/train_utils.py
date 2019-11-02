@@ -920,10 +920,6 @@ def create_garbage_links(num_classes, wnid_labels, original_training_path, \
     class_indecies = sorted(class_indecies)
     class_list = []
 
-    for class_index in class_indecies:
-        folder = wnid_labels[class_index]
-        class_list.append(folder)
-
     if os.path.isfile('selected_dirs.txt'):
         class_indecies = []  # just to be safe.
         class_list = []
@@ -934,6 +930,9 @@ def create_garbage_links(num_classes, wnid_labels, original_training_path, \
         # print("Classes loaded")
         # print(class_list)
     else:
+        for class_index in class_indecies:
+            folder = wnid_labels[class_index]
+            class_list.append(folder)
         f = open('selected_dirs.txt', 'w')
         for elem in class_list:
             f.write(elem + '\n')

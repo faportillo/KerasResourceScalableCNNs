@@ -36,24 +36,24 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5'''
 
 # Pitagyro
-'''IMAGENET_PATH = '/HD1/'
+IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'ILSVRC2012_img_train/'
 VAL_2_PATH = 'Val_2/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5'''
+VALID_TIME_MINUTE = 5
 
 # MC
-IMAGENET_PATH = '/HD1/'
+'''IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'train/'
 VAL_2_PATH = 'val/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5
+VALID_TIME_MINUTE = 5'''
 
 def main():
 
-    model_path = './L5_25p_v1/'
+    model_path = './L15_25p_v1/'
 
     # Load ofms list from .txt file
     ofms = []
@@ -66,7 +66,7 @@ def main():
 
     # Create model
     model = rs_net_ch(num_classes=num_classes, ofms=ofms)
-    model = tu.load_model_npy(model, model_path + 'weights.npy')
+    model = tu.load_model_npy(model, model_path + 'max_l_g_weights.npy')
 
     #Get raw, local, and global accuracy
     local_accuracy = eu.get_local_accuracy(model, IMAGENET_PATH,
@@ -81,9 +81,11 @@ def main():
     print("Global Accuracy: " + str(global_acc))
     print("\nWriting results to file...")
     with open(model_path + 'model_accuracy.txt', 'w') as f:
-        f.write('Local Accuracy: %d' % local_accuracy)
-        f.write('Global Accuracy: %d' % global_acc)
-        f.write('Raw Accuracy: %d' % raw_acc)
+        f.write('Machine: pitagyro')
+        f.write(model_path)
+        f.write('Local Accuracy: %f\n' % local_accuracy)
+        f.write('Global Accuracy: %f\n' % global_acc)
+        f.write('Raw Accuracy: %f\n' % raw_acc)
     shutil.rmtree('./gclass/')
     shutil.rmtree('./dummy_train/')
 

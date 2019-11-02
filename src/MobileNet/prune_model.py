@@ -34,23 +34,31 @@ import tensorflow_model_optimization as tfmot
 from tensorflow_model_optimization.sparsity import keras as sparsity
 
 # Mahya
-IMAGENET_PATH = '/HD1/'
+'''IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'Train/'
 VAL_2_PATH = 'Val_2/'
 META_FILE = 'dev_kit/ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5
+VALID_TIME_MINUTE = 5'''
 
 # Pitagyro
-'''IMAGENET_PATH = '/HD1/'
+IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'ILSVRC2012_img_train/'
 VAL_2_PATH = 'Val_2/'
+META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
+CONFIG_PATH = os.getcwd()
+VALID_TIME_MINUTE = 5
+
+# MC
+'''IMAGENET_PATH = '/HD1/'
+TRAIN_PATH = 'train/'
+VAL_2_PATH = 'val/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5'''
 
 def main():
-    model_path = '../VanillaGoogLeNet'
+    model_path = './L15_25p_v1/'
     '''
         Model options (*note, 'rs' stands for resource-scalable version of model:
         googlenet_rs
@@ -60,37 +68,42 @@ def main():
     '''
     model_type = 'mobilenet_rs'
 
-
     if model_type == 'googlenet':
-        model = vgn.create_googlenet(model_path + '/googlenet_weights.h5')
+        model = vgn.create_googlenet(model_path + 'googlenet_weights.h5')
     elif model_type == 'mobilenet':
         return # put mobilenet code here
     else: #some form of resource-scalable cnn
         # Load ofms list from .txt file
         ofms = []
-        with open(model_path + '/ofms.txt') as f:
+        with open(model_path + 'ofms.txt') as f:
             for line in f:
                 ofm = line[:-1]
                 ofms.append(ofm)
+        num_classes = ofms[-1]  # number of classes
+
+        # Create model
         model = rs_net_ch(num_classes=num_classes, ofms=ofms)
-        model = tu.load_model_npy(model, model_path + '/weights.npy')
+        model = tu.load_model_npy(model, model_path + 'max_l_g_weights.npy')
 
-    epochs = 64
-
-    pruned_model = pu.prune_model(model, imagenet_path=IMAGENET_PATH,
+    pruned_model = pu.prune_model(model,
+                                  num_classes=num_classes,
+                                  batch_size=64,
+                                  model_path=model_path,
+                                  imagenet_path=IMAGENET_PATH,
                                   train_path=TRAIN_PATH,
                                   val_path=VAL_2_PATH,
                                   meta_path=META_FILE,
                                   tb_logpath=model_path+"/logs",
                                   config_path=CONFIG_PATH,
-                                  num_epochs=epochs,
-                                  garbage_multiplier=8)
+                                  num_epochs=64,
+                                  garbage_multiplier=8,
+                                  workers=6)
 
     local_accuracy = eu.get_local_accuracy(pruned_model, IMAGENET_PATH,
-                                           VAL_2_PATH, model_path + '/selected_dirs.txt')
+                                           VAL_2_PATH, model_path + 'selected_dirs.txt')
     global_acc, raw_acc = eu.get_global_accuracy(pruned_model, num_classes, IMAGENET_PATH,
                                                  VAL_2_PATH, META_FILE,
-                                                 model_path + '/selected_dirs.txt',
+                                                 model_path + 'selected_dirs.txt',
                                                  raw_acc=True)
 
     # Write pruned model summary to txt file
@@ -105,7 +118,7 @@ def main():
     print("Local Accuracy: " + str(local_accuracy))
     print("Global Accuracy: " + str(global_acc))
     print("\nWriting results to file...")
-    with open(model_path + '/prune_model_accuracy.txt', 'w') as f:
+    with open(model_path + 'prune_model_accuracy.txt', 'w') as f:
         f.write('Local Accuracy: %d' % local_accuracy)
         f.write('Global Accuracy: %d' % global_acc)
         f.write('Raw Accuracy: %d' % raw_acc)

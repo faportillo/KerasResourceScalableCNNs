@@ -97,8 +97,8 @@ def main():
     print("Global Accuracy: " + str(global_acc))
     print("\nWriting results to file...")
     with open(model_path + 'model_accuracy.txt', 'w') as f:
-        f.write('Machine: pitagyro')
-        f.write(model_path)
+        f.write('Machine: pitagyro\n')
+        f.write(model_path + '\n')
         f.write('Local Accuracy: %f\n' % local_accuracy)
         f.write('Global Accuracy: %f\n' % global_acc)
         f.write('Raw Accuracy: %f\n' % raw_acc)

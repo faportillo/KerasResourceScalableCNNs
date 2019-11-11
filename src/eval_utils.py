@@ -180,7 +180,7 @@ def get_global_accuracy(model, num_classes, imagnenet_path, val_path, meta_file,
         all_imgs = os.listdir(p)
 
         for elem in all_imgs:
-            if garb_count == (50000 - (num_classes-1) * 50):
+            if garb_count == (50000 - (int(num_classes)-1) * 50):
                 break
             if correct_index == 0:
                 garb_count += 1

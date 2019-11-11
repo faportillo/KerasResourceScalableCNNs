@@ -18,7 +18,8 @@ sys.path.append(p)
 import src.train_utils as tu
 import src.prune_utils as pu
 import src.eval_utils as eu
-import src.GoogLeNet.VanillaGoogLeNet.googlenet as vgn
+from rs_net_ch import rs_net_ch
+# import src.GoogLeNet.VanillaGoogLeNet.googlenet as vgn
 
 from tensorflow.python.keras.optimizers import Adam, RMSprop
 from tensorflow.python.keras.backend import int_shape
@@ -29,8 +30,6 @@ from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint, Lear
 from tensorflow.python.keras.utils import multi_gpu_model
 from tensorflow.python.keras import backend as K
 from tensorflow.python.ops import clip_ops
-
-import tensorflow_model_optimization as tfmot
 from tensorflow_model_optimization.sparsity import keras as sparsity
 
 # Mahya
@@ -68,6 +67,8 @@ def main():
     '''
     model_type = 'mobilenet_rs'
 
+    do_orig_eval = False
+
     if model_type == 'googlenet':
         model = vgn.create_googlenet(model_path + 'googlenet_weights.h5')
     elif model_type == 'mobilenet':
@@ -79,44 +80,58 @@ def main():
             for line in f:
                 ofm = line[:-1]
                 ofms.append(ofm)
-        num_classes = ofms[-1]  # number of classes
+        num_classes = int(ofms[-1])  # number of classes
 
         # Create model
         model = rs_net_ch(num_classes=num_classes, ofms=ofms)
         model = tu.load_model_npy(model, model_path + 'max_l_g_weights.npy')
 
-    # Eval model before pruning to record data
-    local_accuracy = eu.get_local_accuracy(model, IMAGENET_PATH,
-                                           VAL_2_PATH, model_path + 'selected_dirs.txt')
-    global_acc, raw_acc = eu.get_global_accuracy(model, num_classes, IMAGENET_PATH,
-                                                 VAL_2_PATH, META_FILE,
-                                                 model_path + 'selected_dirs.txt',
-                                                 raw_acc=True)
-    print("\nRaw Accuracy: " + str(raw_acc))
-    print("Local Accuracy: " + str(local_accuracy))
-    print("Global Accuracy: " + str(global_acc))
-    print("\nWriting results to file...")
-    with open(model_path + 'model_accuracy.txt', 'w') as f:
-        f.write('Machine: pitagyro\n')
-        f.write(model_path + '\n')
-        f.write('Local Accuracy: %f\n' % local_accuracy)
-        f.write('Global Accuracy: %f\n' % global_acc)
-        f.write('Raw Accuracy: %f\n' % raw_acc)
+    if do_orig_eval:
+        # Eval model before pruning to record data
+        local_accuracy = eu.get_local_accuracy(model, IMAGENET_PATH,
+                                               VAL_2_PATH, model_path + 'selected_dirs.txt')
+        global_acc, raw_acc = eu.get_global_accuracy(model, num_classes, IMAGENET_PATH,
+                                                     VAL_2_PATH, META_FILE,
+                                                     model_path + 'selected_dirs.txt',
+                                                     raw_acc=True)
+        print("\nRaw Accuracy: " + str(raw_acc))
+        print("Local Accuracy: " + str(local_accuracy))
+        print("Global Accuracy: " + str(global_acc))
+        print("\nWriting results to file...")
+        with open(model_path + 'model_accuracy.txt', 'w') as f:
+            f.write('Machine: pitagyro\n')
+            f.write(model_path + '\n')
+            f.write('Local Accuracy: %f\n' % local_accuracy)
+            f.write('Global Accuracy: %f\n' % global_acc)
+            f.write('Raw Accuracy: %f\n' % raw_acc)
 
     pruned_model = pu.prune_model(model,
                                   num_classes=num_classes,
-                                  batch_size=64,
+                                  batch_size=32,
+                                  initial_sparsity=0.0,
+                                  final_sparsity=0.50,
+                                  prune_frequency=1,
+                                  stopping_patience=4,
                                   model_path=model_path,
                                   imagenet_path=IMAGENET_PATH,
                                   train_path=TRAIN_PATH,
                                   val_path=VAL_2_PATH,
                                   meta_path=META_FILE,
-                                  tb_logpath=model_path+"/logs",
-                                  config_path=CONFIG_PATH,
-                                  num_epochs=64,
+                                  tb_logpath=model_path+"prune_logs",
+                                  num_epochs=24,
                                   garbage_multiplier=8,
                                   workers=6)
 
+
+    # Load model with best local and global accuracy
+    '''max_l_g_model = load_model(model_path + 'pruned_max_l_g_weights.h5')
+
+    local_accuracy = eu.get_local_accuracy(max_l_g_model, IMAGENET_PATH,
+                                           VAL_2_PATH, model_path + 'selected_dirs.txt')
+    global_acc, raw_acc = eu.get_global_accuracy(max_l_g_model, num_classes, IMAGENET_PATH,
+                                                 VAL_2_PATH, META_FILE,
+                                                 model_path + 'selected_dirs.txt',
+                                                 raw_acc=True)'''
     local_accuracy = eu.get_local_accuracy(pruned_model, IMAGENET_PATH,
                                            VAL_2_PATH, model_path + 'selected_dirs.txt')
     global_acc, raw_acc = eu.get_global_accuracy(pruned_model, num_classes, IMAGENET_PATH,
@@ -124,22 +139,35 @@ def main():
                                                  model_path + 'selected_dirs.txt',
                                                  raw_acc=True)
 
-    # Write pruned model summary to txt file
-    orig_stdout = sys.stdout
-    f = open('pruned_model_summary.txt', 'w')
-    sys.stdout = f
-    print(pruned_model.summary())
-    sys.stdout = orig_stdout
-    f.close()
-
     print("\nRaw Accuracy: " + str(raw_acc))
     print("Local Accuracy: " + str(local_accuracy))
     print("Global Accuracy: " + str(global_acc))
     print("\nWriting results to file...")
-    with open(model_path + 'prune_model_accuracy.txt', 'w') as f:
-        f.write('Local Accuracy: %d' % local_accuracy)
-        f.write('Global Accuracy: %d' % global_acc)
-        f.write('Raw Accuracy: %d' % raw_acc)
+    with open(model_path + 'pruned_model_accuracy.txt', 'w') as f:
+        f.write('Machine: pitagyro\n')
+        f.write(model_path + '\n')
+        f.write('Local Accuracy: %f\n' % local_accuracy)
+        f.write('Global Accuracy: %f\n' % global_acc)
+        f.write('Raw Accuracy: %f\n' % raw_acc)
+
+    # Save model
+    final_model = sparsity.strip_pruning(pruned_model)
+    '''max_l_g_model.save(model_path + 'final_pruned_model.h5')
+    # Write pruned model summary to txt file
+    orig_stdout = sys.stdout
+    with open(model_path + 'pruned_model_summary.txt', 'w') as f:
+        sys.stdout = f
+        print(max_l_g_model.summary())
+        f.write(max_l_g_model.summary())
+        sys.stdout = orig_stdout'''
+    final_model.save(model_path + 'final_pruned_model.h5')
+    # Write pruned model summary to txt file
+    orig_stdout = sys.stdout
+    with open(model_path + 'pruned_model_summary.txt', 'w') as f:
+        sys.stdout = f
+        print(final_model.summary())
+        f.write(final_model.summary())
+        sys.stdout = orig_stdout
 
 if __name__ == '__main__':
     main()

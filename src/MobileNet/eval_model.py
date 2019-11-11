@@ -66,7 +66,16 @@ def main():
 
     # Create model
     model = rs_net_ch(num_classes=num_classes, ofms=ofms)
-    model = tu.load_model_npy(model, model_path + 'max_l_g_weights.npy')
+    #model = tu.load_model_npy(model, model_path + 'pruned_max_l_g_weights.npy')
+    model = load_model(model_path + 'pruned_max_l_g_weights.h5')
+
+    # Write pruned model summary to txt file
+    orig_stdout = sys.stdout
+    f = open(model_path + 'pruned_model_summary.txt', 'w')
+    sys.stdout = f
+    print(model.summary())
+    sys.stdout = orig_stdout
+    f.close()
 
     #Get raw, local, and global accuracy
     local_accuracy = eu.get_local_accuracy(model, IMAGENET_PATH,
@@ -74,20 +83,20 @@ def main():
     global_acc, raw_acc = eu.get_global_accuracy(model, num_classes, IMAGENET_PATH,
                                                  VAL_2_PATH, META_FILE,
                                                  model_path + 'selected_dirs.txt',
-                                                 raw_acc=True)
+                                                 raw_acc=True, symlink_prefix='1GARBAGE')
+
 
     print("\nRaw Accuracy: " + str(raw_acc))
     print("Local Accuracy: " + str(local_accuracy))
     print("Global Accuracy: " + str(global_acc))
     print("\nWriting results to file...")
-    with open(model_path + 'model_accuracy.txt', 'w') as f:
+    with open(model_path + 'pruned_model_accuracy.txt', 'w') as f:
         f.write('Machine: pitagyro\n')
         f.write(model_path + '\n')
         f.write('Local Accuracy: %f\n' % local_accuracy)
         f.write('Global Accuracy: %f\n' % global_acc)
         f.write('Raw Accuracy: %f\n' % raw_acc)
-    shutil.rmtree('./gclass/')
-    shutil.rmtree('./dummy_train/')
+
 
 if __name__ == '__main__':
     main()

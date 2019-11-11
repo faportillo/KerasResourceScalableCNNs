@@ -20,10 +20,11 @@ from tensorflow.python.keras.metrics import top_k_categorical_accuracy, \
 from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint, \
     Callback, LearningRateScheduler, TerminateOnNaN
 from tensorflow.python.ops import clip_ops
+from tensorflow_model_optimization.sparsity import keras as sparsity
 
 # from model_shell import google_csn
 
-IMAGE_SIZE = 224
+IMAGE_SIZE = 227
 ROT_RANGE = 30
 WIDTH_SHIFT_RANGE = 0.2
 HEIGHT_SHIFT_RANGE = 0.2
@@ -71,9 +72,6 @@ def global_accuracy(y_true, y_pred):
     :param y_pred: Dataset labels, list of ints in a batch
     :return: global accuracy
     '''
-
-    '''if K.ndim(y_true) == K.ndim(y_pred):
-        y_true = K.squeeze(y_true, -1)'''
     argmax_true = K.argmax(y_true, axis=-1)
     argmax_pred = K.argmax(y_pred, axis=-1)
     argmax_true = K.cast(argmax_true, dtype='float32')
@@ -86,16 +84,21 @@ def global_accuracy(y_true, y_pred):
 def local_accuracy(y_true, y_pred):
     y_true = K.cast(y_true, dtype='float32')
     y_pred = K.cast(y_pred, dtype='float32')
-    '''if K.ndim(y_true) == K.ndim(y_pred):
-        y_true = K.squeeze(y_true, -1)'''
-    y_true = y_true * (y_true != 0)
-    y_pred = y_pred * (y_true != 0)
+    zero = K.constant(0, dtype='float32')
     argmax_true = K.argmax(y_true, axis=-1)
     argmax_pred = K.argmax(y_pred, axis=-1)
-    return K.cast(K.equal(argmax_true, argmax_pred), K.floatx())
+    argmax_true = K.cast(argmax_true, dtype='float32')
+    argmax_pred = K.cast(argmax_pred, dtype='float32')
+    non_zero_true = K.gather(argmax_true, tf.where(K.not_equal(argmax_true, zero)))
+    non_zero_pred = K.gather(argmax_pred, tf.where(K.not_equal(argmax_true, zero)))
+    return K.cast(K.equal(non_zero_true, non_zero_pred), K.floatx())
 
-def imagenet_generator(train_data_path, val_data_path, batch_size, do_augment, \
-                       val_batch_size=VALIDATION_BATCH_SIZE, image_size=IMAGE_SIZE):
+def imagenet_generator(train_data_path,
+                       val_data_path,
+                       batch_size,
+                       do_augment,
+                       val_batch_size=VALIDATION_BATCH_SIZE,
+                       image_size=IMAGE_SIZE):
     '''
         train_data_path: Path for ImageNet Training Directory
         val_data_path: Path for ImageNet Validation Directory
@@ -132,21 +135,29 @@ def imagenet_generator(train_data_path, val_data_path, batch_size, do_augment, \
       Change follow_links to True when using symbolic links
       to training and validation data
     '''
-    train_generator = train_datagen.flow_from_directory( \
-        train_data_path, target_size=(image_size, image_size), \
-        batch_size=batch_size, shuffle=True, class_mode='categorical', \
-        follow_links=True)
+    train_generator = train_datagen.flow_from_directory(train_data_path,
+                                                        target_size=(image_size, image_size),
+                                                        batch_size=batch_size,
+                                                        shuffle=True,
+                                                        class_mode='categorical',
+                                                        follow_links=True)
     print("Grabbing Validation Dataset")
-    validation_generator = val_datagen.flow_from_directory( \
-        val_data_path, target_size=(image_size, image_size), \
-        batch_size=val_batch_size, shuffle=True, \
-        class_mode='categorical', \
-        follow_links=True)
+    validation_generator = val_datagen.flow_from_directory(val_data_path,
+                                                           target_size=(image_size, image_size),
+                                                           batch_size=val_batch_size,
+                                                           shuffle=True,
+                                                           class_mode='categorical',
+                                                           follow_links=True)
+
     return train_generator, validation_generator
 
-
-def imagenet_generator_multi(train_data_path, val_data_path, batch_size, do_augment, \
-                             val_batch_size=VALIDATION_BATCH_SIZE, image_size=IMAGE_SIZE, num_outputs=2):
+def imagenet_generator_multi(train_data_path,
+                             val_data_path,
+                             batch_size,
+                             do_augment,
+                             val_batch_size=VALIDATION_BATCH_SIZE,
+                             image_size=IMAGE_SIZE,
+                             num_outputs=2):
     '''
         For use with auxiliary classifiers or mutliple outputs
         train_data_path: Path for ImageNet Training Directory
@@ -202,7 +213,6 @@ def imagenet_generator_multi(train_data_path, val_data_path, batch_size, do_augm
         multi_validation_generator = create_multi_generator_3(validation_generator)
     return multi_train_generator, multi_validation_generator
 
-
 def create_multi_generator(data_generator, batch_size=64):
     while (True):
         data_imgs, data_l = next(data_generator)
@@ -214,15 +224,21 @@ def create_multi_generator_3(data_generator, batch_size=64):
         data_imgs, data_l = next(data_generator)
         yield [data_imgs], [data_l, data_l, data_l]
 
-def create_dataset(train_data_path, val_data_path, batch_size, do_augment=True,
-                   format='generator', tf_record_dir=None, val_batch_size=VALIDATION_BATCH_SIZE,
-                   image_size=IMAGE_SIZE, num_outputs=2):
+def create_dataset(train_data_path,
+                   val_data_path,
+                   batch_size,
+                   do_augment=True,
+                   format='generator',
+                   tf_record_dir=None,
+                   val_batch_size=VALIDATION_BATCH_SIZE,
+                   image_size=IMAGE_SIZE,
+                   num_outputs=1):
     '''
-            ToDO: Replace imagenet_generator(_multi) with this function
-            Uses ImageDataGenerator to create dataset from directory and either returns generators for
-            train/val or converts to TFRecord file
-            :return: Keras Data Generators (or TFRecord Files) for Training and Validation
-        '''
+        ToDO: Replace imagenet_generator(_multi) with this function
+        Uses ImageDataGenerator to create dataset from directory and either returns generators for
+        train/val or converts to TFRecord file
+        :return: Keras Data Generators (or TFRecord Files) for Training and Validation
+    '''
     if do_augment == True:
         if format == 'tfrecord':
             raise Exception("Cannot augment images beforehand if coverting to TFRecord.")
@@ -241,13 +257,13 @@ def create_dataset(train_data_path, val_data_path, batch_size, do_augment=True,
         h_flip = False
 
     # print("Grabbing Training Dataset")
-    train_datagen = ImageDataGenerator(samplewise_center=False, \
-                                       rotation_range=rot_range, \
-                                       width_shift_range=w_shift_r, \
-                                       height_shift_range=h_shift_r, \
-                                       zoom_range=z_range, \
-                                       shear_range=shear_r, \
-                                       horizontal_flip=h_flip, \
+    train_datagen = ImageDataGenerator(samplewise_center=False,
+                                       rotation_range=rot_range,
+                                       width_shift_range=w_shift_r,
+                                       height_shift_range=h_shift_r,
+                                       zoom_range=z_range,
+                                       shear_range=shear_r,
+                                       horizontal_flip=h_flip,
                                        fill_mode='nearest', rescale=1. / 255)
 
     val_datagen = ImageDataGenerator(rescale=1. / 255)
@@ -256,16 +272,19 @@ def create_dataset(train_data_path, val_data_path, batch_size, do_augment=True,
       Change follow_links to True when using symbolic links
       to training and validation data
     '''
-    train_generator = train_datagen.flow_from_directory( \
-        train_data_path, target_size=(image_size, image_size), \
-        batch_size=batch_size, shuffle=True, class_mode='categorical', \
-        follow_links=True)
+    train_generator = train_datagen.flow_from_directory(train_data_path,
+                                                        target_size=(image_size, image_size),
+                                                        batch_size=batch_size,
+                                                        shuffle=True,
+                                                        class_mode='categorical',
+                                                        follow_links=True)
     # print("Grabbing Validation Dataset")
-    validation_generator = val_datagen.flow_from_directory( \
-        val_data_path, target_size=(image_size, image_size), \
-        batch_size=val_batch_size, shuffle=True, \
-        class_mode='categorical', \
-        follow_links=True)
+    validation_generator = val_datagen.flow_from_directory(val_data_path,
+                                                           target_size=(image_size, image_size),
+                                                           batch_size=val_batch_size,
+                                                           shuffle=True,
+                                                           class_mode='categorical',
+                                                           follow_links=True)
     if num_outputs == 1:
         print("")
     elif num_outputs == 2:
@@ -328,13 +347,13 @@ def _int64_feature(value):
     """Returns an int64_list from a bool / enum / int / uint."""
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
-def tf_serialize(img, label, num_outputs=2):
+def tf_serialize(img, label, num_outputs=1):
     tf_string = tf.py_function(serialize,
                                (img, label, num_outputs),
                                (tf.string))
     return tf.reshape(tf_string, ())
 
-def serialize(img, label, num_outputs=2):
+def serialize(img, label, num_outputs=1):
     '''
     Used to serialize input image dataset for use in TFRecords
     :param img:
@@ -371,70 +390,108 @@ def fit_model(model, num_classes, first_class, last_class, batch_size,
               image_size=227,
               op_type=None,
               decay_params=None,
+              format='generator',
               imagenet_path=None,
               model_path='./',
               train_path=None,
               val_path=None,
               tb_logpath='./logs',
               meta_path=None,
-              config_path=None,
               symlink_prefix='GARBAGE',
               num_epochs=1000,
               augment=True,
-              multi_outputs=False,
               clrcm_params=None,
               train_by_branch=False,
-              num_outs=2,
+              num_outs=1,
               garbage_multiplier=1,
               workers=1):
     '''
-    :param model: Keras model
-    :param num_classes:
-    :param batch_size:
-    :param op_type: Optimizer type
-    :param decay_params: Decay parameters for rmsprop
-    :param imagenet_path:
-    :param train_path:
-    :param val_path:
-    :param tb_logpath: Tensorboard Path
-    :param meta_path: ImageNet meta path
-    :param config_path: Config file path
-    :param num_epochs:
-    :param augment: Augment data (t/f)
-    :param multi_outputs: Use aux classifier
-    :param clrcm_params: CLRC(Cyclical Learning Rate, Cyclical Momentum for sgd
-    :return:
+        :param model: Keras model
+        :param num_classes:
+        :param batch_size:
+        :param op_type: Optimizer type
+        :param decay_params: Decay parameters for rmsprop
+        :param imagenet_path:
+        :param train_path:
+        :param val_path:
+        :param tb_logpath: Tensorboard Path
+        :param meta_path: ImageNet meta path
+        :param config_path: Config file path
+        :param num_epochs:
+        :param augment: Augment data (t/f)
+        :param multi_outputs: Use aux classifier
+        :param clrcm_params: CLRC(Cyclical Learning Rate, Cyclical Momentum for sgd
+        :return:
     '''
-    '''
-      Fit Model to dataset
-    '''
-    orig_train_img_path = os.path.join(imagenet_path, train_path)
-    orig_val_img_path = os.path.join(imagenet_path, val_path)
-    train_img_path = orig_train_img_path
-    val_img_path = orig_val_img_path
-    wnid_labels, _ = load_imagenet_meta(os.path.join(imagenet_path, \
-                                                     meta_path))
-    new_training_path = os.path.join(imagenet_path, symlink_prefix+"_TRAIN_")
-    new_validation_path = os.path.join(imagenet_path, symlink_prefix+"_VAL_")
-    selected_classes = create_garbage_links(num_classes, wnid_labels, train_img_path, \
-                                            new_training_path, val_img_path, new_validation_path)
-    create_garbage_class_folder(selected_classes, wnid_labels,
-                                train_img_path, new_training_path,
-                                val_img_path, new_validation_path)
-    train_img_path = new_training_path
-    val_img_path = new_validation_path
 
-    # for layer in model.layers:
-    # print(layer, layer.trainable)
-    # print(model.inputs)
-    # print(model.outputs)
-    # print("Initializing Callbacks")
+    if num_outs > 1:
+        multi_outputs = True
+    else:
+        multi_outputs = False
+
+    '''
+        Create dataset and link paths if using ImageDataGenerator for data
+    '''
+    if format == 'generator':
+        orig_train_img_path = os.path.join(imagenet_path, train_path)
+        orig_val_img_path = os.path.join(imagenet_path, val_path)
+        train_img_path = orig_train_img_path
+        val_img_path = orig_val_img_path
+        wnid_labels, _ = load_imagenet_meta(os.path.join(imagenet_path, \
+                                                         meta_path))
+        new_training_path = os.path.join(imagenet_path, symlink_prefix+"_TRAIN_")
+        new_validation_path = os.path.join(imagenet_path, symlink_prefix+"_VAL_")
+        selected_classes = create_garbage_links(num_classes, wnid_labels, train_img_path,
+                                                new_training_path, val_img_path, new_validation_path)
+        create_garbage_class_folder(selected_classes,
+                                    wnid_labels,
+                                    train_img_path,
+                                    new_training_path,
+                                    val_img_path,
+                                    new_validation_path,
+                                    garbage_multiplier=garbage_multiplier)
+        train_img_path = new_training_path
+        val_img_path = new_validation_path
+
+        train_data, val_data = create_dataset(train_img_path,
+                                              val_img_path,
+                                              batch_size=batch_size,
+                                              val_batch_size=val_batch_size,
+                                              do_augment=augment,
+                                              num_outputs=num_outs,
+                                              image_size=image_size)
+    elif format == 'tfrecord':
+        # Put data creation for tfrecord format
+        return
+    else:
+        print("Invalid or unimplemented data format. Exiting...")
+        exit()
+
+    '''if multi_outputs is True:
+        if num_outs == 2:
+            train_data, val_data = imagenet_generator_multi(train_img_path, \
+                                                            val_img_path, batch_size=batch_size,
+                                                            val_batch_size=val_batch_size,\
+                                                            do_augment=augment, image_size=image_size)
+        else:
+            train_data, val_data = imagenet_generator_multi(train_img_path, \
+                                                            val_img_path, batch_size=batch_size, val_batch_size=val_batch_size, \
+                                                            do_augment=augment, num_outputs=num_outs, image_size=image_size)
+
+    else:
+        train_data, val_data = imagenet_generator(train_img_path, val_img_path, \
+                                                  batch_size=batch_size, val_batch_size=val_batch_size, \
+                                                  do_augment=augment, image_size=image_size)'''
+
+    '''
+        Implement Callbacks
+    '''
+    print("Initializing Callbacks")
     tb_callback = TensorBoard(log_dir=tb_logpath)
     '''
     checkpoint_callback = ModelCheckpoint(filepath='weights.h5'\
                         ,verbose = 1, save_weights_only = True, period=1)
     '''
-
     termNaN_callback = TerminateOnNaN()
     save_weights_std_callback = ModelCheckpoint(model_path+'weights.hdf5',
                                                 monitor='val_categorical_accuracy',
@@ -465,299 +522,46 @@ def fit_model(model, num_classes, first_class, last_class, batch_size,
         print ('Optimizer: Adam')
     elif op_type == 'sgd':
         print('Optimizer: SGD')
-        one_cycle = OneCycle(clrcm_params[0], clrcm_params[1], clrcm_params[2], \
+        one_cycle = OneCycle(clrcm_params[0], clrcm_params[1], clrcm_params[2],
                              clrcm_params[3], clrcm_params[4], clrcm_params[5])
         callback_list.append(one_cycle)
     else:
-        # print ('Invalid Optimizer. Exiting...')
+        print ('Invalid Optimizer. Exiting...')
         exit()
-    # print("Generating Data")
-    # Get training and validation generatorsi
-    # print("OCD check: Train IMG Path:", train_img_path)
-    # print("OCD check: Val IMG Path:", val_img_path)
-    if multi_outputs is True:
-        if num_outs == 2:
-            train_data, val_data = imagenet_generator_multi(train_img_path, \
-                                                            val_img_path, batch_size=batch_size,
-                                                            val_batch_size=val_batch_size,\
-                                                            do_augment=augment, image_size=image_size)
-        else:
-            train_data, val_data = imagenet_generator_multi(train_img_path, \
-                                                            val_img_path, batch_size=batch_size, val_batch_size=val_batch_size, \
-                                                            do_augment=augment, num_outputs=num_outs, image_size=image_size)
 
-    else:
-        train_data, val_data = imagenet_generator(train_img_path, val_img_path, \
-                                                  batch_size=batch_size, val_batch_size=val_batch_size, \
-                                                  do_augment=augment, image_size=image_size)
-    # print(train_data)
-
-    save_weights_callback = SaveWeightsNumpy(num_classes, model, model_path, period=val_period, selected_classes=
-    selected_classes, wnid_labels=wnid_labels, orig_train_img_path=orig_train_img_path,
-                                             new_training_path=new_training_path, orig_val_img_path=orig_val_img_path,
-                                             new_val_path=val_img_path, multi_outputs=multi_outputs)
+    save_weights_callback = SaveWeightsNumpy(num_classes, model,
+                                             model_path,
+                                             period=val_period,
+                                             selected_classes=selected_classes,
+                                             wnid_labels=wnid_labels,
+                                             orig_train_img_path=orig_train_img_path,
+                                             new_training_path=new_training_path,
+                                             orig_val_img_path=orig_val_img_path,
+                                             new_val_path=val_img_path,
+                                             multi_outputs=multi_outputs)
     callback_list.append(save_weights_callback)
 
     # Fit and validate model based on generators
-    # print("Fitting Model")
     if multi_outputs:
         use_multiproc = True
     else:
         use_multiproc = False
 
-    model.fit_generator(train_data, epochs=num_epochs, \
-                        steps_per_epoch=int(((num_classes-1) * 1300)+(1300*garbage_multiplier)) / batch_size, \
-                        validation_data=val_data, \
-                        validation_steps= \
-                            int(50000 / val_batch_size),
+    model.fit_generator(train_data,
+                        epochs=num_epochs,
+                        steps_per_epoch=int(((num_classes-1) * 1300)+(1300*garbage_multiplier)) / batch_size,
+                        validation_data=val_data,
+                        validation_steps= int(50000 / val_batch_size),
                         validation_freq=val_period,
                         max_queue_size = 31,
-                        verbose=1, callbacks=callback_list, workers=workers,
+                        verbose=1,
+                        callbacks=callback_list,
+                        workers=workers,
                         use_multiprocessing=use_multiproc)
 
     save_model(model, model_path+'rs_model_final.h5')
 
     return model
-
-def fit_model_tfr(model, num_classes, num_epochs=1000, batch_size=64, val_batch_size=VALIDATION_BATCH_SIZE,
-                  image_size=227, op_type=None, dataset_path=None, model_path='./', train_path=None,
-                  val_path=None, format='generator', tfr_path=None, tb_logpath='./logs', meta_path=None, augment=True, multi_outputs=False,num_outs=1):
-    '''
-        ToDo: Update to be single fit_model function (i.e. update fitmodel with this...)
-          Fit Model to dataset
-    '''
-    orig_train_img_path = os.path.join(dataset_path, train_path)
-    orig_val_img_path = os.path.join(dataset_path, val_path)
-    train_img_path = orig_train_img_path
-    val_img_path = orig_val_img_path
-    wnid_labels, _ = load_imagenet_meta(os.path.join("/HD1/", \
-                                                     meta_path))
-    new_training_path = os.path.join(dataset_path, "GARBAGE_TRAIN_")
-    new_validation_path = os.path.join(dataset_path, "GARBAGE_VAL_")
-    selected_classes = create_garbage_links(num_classes, wnid_labels, train_img_path, \
-                                            new_training_path, val_img_path, new_validation_path)
-    create_garbage_class_folder(selected_classes, wnid_labels,
-                                train_img_path, new_training_path,
-                                val_img_path, new_validation_path)
-    train_img_path = new_training_path
-    val_img_path = new_validation_path
-
-    tb_callback = TensorBoard(log_dir=tb_logpath)
-    '''
-    checkpoint_callback = ModelCheckpoint(filepath='weights.h5'\
-                        ,verbose = 1, save_weights_only = True, period=1)
-    '''
-
-    termNaN_callback = TerminateOnNaN()
-    save_weights_std_callback = ModelCheckpoint(model_path + 'weights.hdf5',
-                                                monitor='val_prob_main_categorical_accuracy', verbose=1,
-                                                save_best_only=True,
-                                                save_weights_only=False, mode='max', period=1)
-    callback_list = [tb_callback, termNaN_callback, save_weights_std_callback]
-
-    if op_type == 'rmsprop':
-        '''
-            If the optimizer type is RMSprop, decay learning rate
-            and append to callback list
-        '''
-        lr_decay_callback = ExpDecayScheduler(decay_params[0], \
-                                              decay_params[1], decay_params[2])
-        callback_list.append(lr_decay_callback)
-    elif op_type == 'adam':
-        print ('Optimizer: Adam')
-    elif op_type == 'sgd':
-        print('Optimizer: SGD')
-        one_cycle = OneCycle(clrcm_params[0], clrcm_params[1], clrcm_params[2], \
-                             clrcm_params[3], clrcm_params[4], clrcm_params[5])
-        callback_list.append(one_cycle)
-    else:
-        # print ('Invalid Optimizer. Exiting...')
-        exit()
-    # print("Generating Data")
-    # Get training and validation generatorsi
-    # print("OCD check: Train IMG Path:", train_img_path)
-    # print("OCD check: Val IMG Path:", val_img_path)
-    create_dataset(train_data_path=train_img_path, val_data_path=val_img_path, batch_size=batch_size, do_augment=augment,
-                   format=format, tf_record_dir='', val_batch_size=val_batch_size,
-                   image_size=image_size, num_outputs=num_outs)
-
-
-def eval_model(model, num_classes, batch_size, imagenet_path=None,
-               train_path=None, val_path=None,
-               meta_path=None, num_epochs=1000, augment=True, \
-               multi_outputs=False):
-    '''
-      Eval Model
-    '''
-    orig_train_img_path = os.path.join(imagenet_path, train_path)
-    orig_val_img_path = os.path.join(imagenet_path, val_path)
-    train_img_path = orig_train_img_path
-    val_img_path = orig_val_img_path
-    wnid_labels, _ = load_imagenet_meta(os.path.join(imagenet_path, \
-                                                     meta_path))
-    new_training_path = os.path.join(imagenet_path, "GARBAGE_TRAIN_")
-    new_validation_path = os.path.join(imagenet_path, "GARBAGE_VAL_")
-    selected_classes = create_garbage_links(num_classes, wnid_labels, train_img_path, \
-                                            new_training_path, val_img_path, new_validation_path)
-    create_garbage_class_folder(selected_classes, wnid_labels,
-                                train_img_path, new_training_path,
-                                val_img_path, new_validation_path)
-    train_img_path = new_training_path
-    val_img_path = new_validation_path
-
-    # for layer in model.layers:
-    # print(layer, layer.trainable)
-    # print(model.inputs)
-    # print(model.outputs)
-
-    # print("Generating Data")
-    # Get training and validation generatorsi
-    # print("OCD check: Train IMG Path:", train_img_path)
-    # print("OCD check: Val IMG Path:", val_img_path)
-    if multi_outputs is True:
-        train_data, val_data = imagenet_generator_multi(train_img_path, \
-                                                        val_img_path, batch_size=batch_size, \
-                                                        do_augment=augment)
-        # train_data_test, val_data_test = imagenet_generator_multi(train_img_path, \
-        #                                                val_img_path, batch_size=batch_size, val_batch_size=50, \
-        #                                                do_augment=augment)
-
-    else:
-        train_data, val_data = imagenet_generator(train_img_path, val_img_path, \
-                                                  batch_size=batch_size, \
-                                                  do_augment=augment)
-        # train_data_test, val_data_test = imagenet_generator_multi(train_img_path, \
-        #                                                val_img_path, batch_size=batch_size, val_batch_size=50, \
-        #                                                do_augment=augment)
-
-    save_weights_callback = SaveWeightsNumpy(num_classes, model, 'weights.npy', period=2, selected_classes=
-    selected_classes, wnid_labels=wnid_labels, orig_train_img_path=orig_train_img_path,
-                                             new_training_path=new_training_path, orig_val_img_path=orig_val_img_path,
-                                             new_val_path=val_img_path)
-
-    # Fit and validate model based on generators
-    # print("Evaluating Model")
-    eval_losses = model.evaluate_generator(val_data,
-                                           steps=int(50000 // batch_size),
-                                           verbose=1, workers=20,
-                                           use_multiprocessing=True)
-
-    return model, eval_losses
-
-
-def predict_model(model, num_classes, batch_size, first_class=None, last_class=None,
-                  imagenet_path=None,
-                  train_path=None, val_path=None, tb_logpath='./logs', \
-                  meta_path=None, config_path=None, augment=True, \
-                  multi_outputs=False):
-    '''
-    :param model: Keras model
-    :param num_classes:
-    :param batch_size:
-    :param op_type: Optimizer type
-    :param decay_params: Decay parameters for rmsprop
-    :param imagenet_path:
-    :param train_path:
-    :param val_path:
-    :param tb_logpath: Tensorboard Path
-    :param meta_path: ImageNet meta path
-    :param config_path: Config file path
-    :param num_epochs:
-    :param augment: Augment data (t/f)
-    :param multi_outputs: Use aux classifier
-    :return:
-    '''
-    '''
-      Predict model using test data
-    '''
-    if first_class is None and last_class is None:
-        orig_train_img_path = os.path.join(imagenet_path, train_path)
-        orig_val_img_path = os.path.join(imagenet_path, val_path)
-        train_img_path = orig_train_img_path
-        val_img_path = orig_val_img_path
-        wnid_labels, _ = load_imagenet_meta(os.path.join(imagenet_path, \
-                                                         meta_path))
-
-        if (num_classes < 1000):
-            train_img_path = os.path.join(imagenet_path, 'TrainingClasses_/')
-            val_img_path = os.path.join(imagenet_path, 'ValidationClasses_/')
-            create_symbolic_link(num_classes, wnid_labels, \
-                                 original_training_path=orig_train_img_path, \
-                                 new_training_path=train_img_path, \
-                                 original_validation_path=orig_val_img_path, \
-                                 new_validation_path=val_img_path, \
-                                 config_path=config_path)
-    else:
-        orig_train_img_path = os.path.join(imagenet_path, train_path)
-        orig_val_img_path = os.path.join(imagenet_path, val_path)
-        train_img_path = orig_train_img_path
-        val_img_path = orig_val_img_path
-        wnid_labels, _ = load_imagenet_meta(os.path.join(imagenet_path, \
-                                                         meta_path))
-        new_training_path = os.path.join(imagenet_path, "GARBAGE_TRAIN_V2")
-        new_validation_path = os.path.join(imagenet_path, "GARBAGE_VAL_V2")
-        selected_classes = create_garbage_links(num_classes, wnid_labels, train_img_path, \
-                                                new_training_path, val_img_path, new_validation_path)
-        create_garbage_class_folder(selected_classes, wnid_labels,
-                                    train_img_path, new_training_path,
-                                    val_img_path, new_validation_path)
-        train_img_path = new_training_path
-        val_img_path = new_validation_path
-
-    # for layer in model.layers:
-    # print(layer, layer.trainable)
-    # print(model.inputs)
-    # print(model.outputs)
-
-    # print("Generating Data")
-    # Get training and validation generators
-    # print("OCD check: Train IMG Path:", train_img_path)
-    # print("OCD check: Val IMG Path:", val_img_path)
-    if multi_outputs is True:
-        train_data, val_data = imagenet_generator_multi(train_img_path,
-                                                        val_img_path, batch_size=batch_size,
-                                                        val_batch_size=VALIDATION_BATCH_SIZE,
-                                                        do_augment=augment, num_outs=3)
-
-    else:
-        _, val_data = imagenet_generator(train_img_path, val_img_path,
-                                         val_batch_size=batch_size,
-                                         batch_size=batch_size,
-                                         do_augment=augment)
-
-    # Fit and validate model based on generators
-    # print("Evaluating and Predicting Model")
-    '''eval_losses = model.evaluate_generator(train_data,
-                                           steps=int(num_classes * 1300) // batch_size)
-    #print(model.metrics_names)
-    #print(eval_losses)'''
-    steps = int(num_classes * 1300) // batch_size
-    counter = 0
-    predictions = []
-    total_correct = 0
-    for val in train_data:
-        if counter == steps:
-            break
-        img = val[0][0]
-        pred = model.predict_on_batch(img)
-        actual_pred = np.argmax(pred[1], axis=1)
-        true_pred = np.argmax(val[1][0], axis=1)
-        eqs = np.where(np.equal(actual_pred, true_pred))
-        right_preds = pred[0][:]  # pred[0][eqs] #
-        # print(right_preds.shape)
-        total_correct += right_preds.shape[0]
-        predictions.append(right_preds)
-        counter += 1
-
-    predictions = np.concatenate(predictions[:], axis=0)
-    '''predictions = model.predict_generator(val_data,
-                        steps=int(num_classes*50) // batch_size,
-                        verbose=1)
-    '''
-    np.save('main_out_wrong', predictions)
-    np.savetxt('main_out_wrong', predictions)
-    return model
-
 
 def load_model_npy(model, filename):
     print("Loading weights from: " + str(filename))
@@ -768,10 +572,14 @@ def load_model_npy(model, filename):
     return model
 
 
-def create_selective_symbolic_link(first_class, last_class, wnid_labels, \
-                                   original_training_path, new_training_path, \
-                                   original_validation_path, new_validation_path, \
-                                   config_path):
+def create_selective_symbolic_link(first_class,
+                                   last_class,
+                                   wnid_labels,
+                                   original_training_path,
+                                   new_training_path,
+                                   original_validation_path,
+                                   new_validation_path):
+
     if os.path.exists(new_training_path):
         shutil.rmtree(new_training_path)
     os.makedirs(new_training_path)
@@ -787,9 +595,10 @@ def create_selective_symbolic_link(first_class, last_class, wnid_labels, \
         dst = os.path.join(new_validation_path, dir.strip('\n'))
         os.symlink(src, dst)
 
-
-def change_garbage_class_folder(selected_classes, wnid_labels,
-                                original_training_path, new_training_path):
+def change_garbage_class_folder(selected_classes,
+                                wnid_labels,
+                                original_training_path,
+                                new_training_path, garbage_multiplier=1):
     class_list = []
     for i in range(0, 1000):
         folder = wnid_labels[i]
@@ -798,15 +607,10 @@ def change_garbage_class_folder(selected_classes, wnid_labels,
         class_list.append(folder)
     train_dst = os.path.join(new_training_path, 'gclass')
 
-    # if os.path.exists(train_dst):
-    #    shutil.rmtree(train_dst)
-    # os.makedirs(train_dst)
-
     cnt = 0
-    # print("Creating new symlinks for g class ...")
     chosen_elems = []
     # number of images from garbage classes = number of images from selected classes
-    while (cnt <= 1300*8):
+    while (cnt <= 1300*garbage_multiplier):
         cls_num = random.randint(0, len(class_list) - 1)
         elem = class_list[cls_num]
         train_src = os.path.join(original_training_path, elem.strip('\n'))
@@ -819,7 +623,6 @@ def change_garbage_class_folder(selected_classes, wnid_labels,
             continue
         else:
             cnt += 1
-            # print("CLS: " + str(cls_num) + " - " + "IMG: " + str(img_num) + " >> "  + str(cnt) + '.JPEG')
             dst_img = os.path.join(train_dst, str(cnt) + '.JPEG')
             if os.path.isfile(dst_img):
                 os.remove(dst_img)
@@ -827,8 +630,10 @@ def change_garbage_class_folder(selected_classes, wnid_labels,
             chosen_elems.append(src_img)
 
 
-def change_garbage_class_folder_val(selected_classes, wnid_labels,
-                                    original_training_path, new_training_path):
+def change_garbage_class_folder_val(selected_classes,
+                                    wnid_labels,
+                                    original_training_path,
+                                    new_training_path):
     class_list = []
     for i in range(0, 1000):
         folder = wnid_labels[i]
@@ -838,12 +643,7 @@ def change_garbage_class_folder_val(selected_classes, wnid_labels,
 
     train_dst = os.path.join(new_training_path, 'gclass')
 
-    # if os.path.exists(train_dst):
-    #    shutil.rmtree(train_dst)
-    # os.makedirs(train_dst)
-
     cnt = 0
-    # print("Creating new symlinks for g class ...")
     chosen_elems = []
     # number of images from garbage classes = number of images from selected classes
     while (cnt <= 50):
@@ -859,7 +659,6 @@ def change_garbage_class_folder_val(selected_classes, wnid_labels,
             continue
         else:
             cnt += 1
-            # print("CLS: " + str(cls_num) + " - " + "IMG: " + str(img_num) + " >> "  + str(cnt) + '.JPEG')
             dst_img = os.path.join(train_dst, str(cnt) + '.JPEG')
             if os.path.isfile(dst_img):
                 os.remove(dst_img)
@@ -867,22 +666,29 @@ def change_garbage_class_folder_val(selected_classes, wnid_labels,
             chosen_elems.append(src_img)
 
 
-def create_garbage_class_folder(selected_classes, wnid_labels,
-                                original_training_path, new_training_path,
-                                original_val_path, new_val_path):
+def create_garbage_class_folder(selected_classes,
+                                wnid_labels,
+                                original_training_path,
+                                new_training_path,
+                                original_val_path,
+                                new_val_path,
+                                garbage_multiplier=1):
     class_list = []
     for i in range(0, 1000):
         folder = wnid_labels[i]
         if folder in selected_classes:
             continue
         class_list.append(folder)
-    # print("Len garbage list: " + str(len(class_list)))
     if new_training_path is not '':
         train_dst = os.path.join(new_training_path, 'gclass')
         if os.path.exists(train_dst):
             shutil.rmtree(train_dst)
         os.makedirs(train_dst)
-        change_garbage_class_folder(selected_classes, wnid_labels, original_training_path, new_training_path)
+        change_garbage_class_folder(selected_classes,
+                                    wnid_labels,
+                                    original_training_path,
+                                    new_training_path,
+                                    garbage_multiplier=garbage_multiplier)
     if new_val_path is not '':
         val_dst = os.path.join(new_val_path, 'gclass')
         if os.path.exists(val_dst):
@@ -893,34 +699,8 @@ def create_garbage_class_folder(selected_classes, wnid_labels,
         img_cnt = 0
         for elem in class_list:
             cnt += 1
-            # print ("Image: " + str(cnt) + " out of " + str(len(class_list)))
-            # train_src = os.path.join(original_training_path, elem.strip('\n'))
             val_src = os.path.join(original_val_path, elem.strip('\n'))
-            # train_images = os.listdir(train_src)
             val_images = os.listdir(val_src)
-            # if cnt < 309:
-            #     img_cnt += 1
-            #     img = train_images[400]
-            #     src_img = os.path.join(train_src, img)
-            #     dst_img = os.path.join(train_dst, str(img_cnt) + '.JPEG')
-            #     os.symlink(src_img, dst_img)
-            # img_cnt += 1
-            # img = train_images[600]
-            # src_img = os.path.join(train_src, img)
-            # dst_img = os.path.join(train_dst, str(img_cnt) + '.JPEG')
-            # os.symlink(src_img, dst_img)
-            # for img in train_images:
-            #    src_img = os.path.join(train_src, img)
-            #    dst_img = os.path.join(train_dst, img)
-            #    os.symlink(src_img, dst_img)
-
-            # if cnt % 10 == 0:
-            #    total_valid += 1
-            #    if total_valid <= 50:
-            #        img = val_images[10] #just random number
-            #        src_img = os.path.join(val_src, img)
-            #        dst_img = os.path.join(val_dst, img)
-            #        os.symlink(src_img, dst_img)
 
             for img in val_images:
                 src_img = os.path.join(val_src, img)
@@ -928,9 +708,13 @@ def create_garbage_class_folder(selected_classes, wnid_labels,
                 os.symlink(src_img, dst_img)
 
 
-def create_garbage_links(num_classes, wnid_labels, original_training_path, \
-                         new_training_path, original_validation_path, \
+def create_garbage_links(num_classes,
+                         wnid_labels,
+                         original_training_path,
+                         new_training_path,
+                         original_validation_path,
                          new_validation_path):
+
     if new_training_path is not '':
         if os.path.exists(new_training_path):
             shutil.rmtree(new_training_path)
@@ -942,21 +726,19 @@ def create_garbage_links(num_classes, wnid_labels, original_training_path, \
         os.makedirs(new_validation_path)
 
     # Not sure if it's zero based or 1 based in Keras => remove both 0 and 1000
-    class_indecies = random.sample(range(1, 999), num_classes - 1)
-    class_indecies = sorted(class_indecies)
+    class_indices = random.sample(range(0, 999), int(num_classes) - 1)
+    class_indices = sorted(class_indices)
     class_list = []
 
     if os.path.isfile('selected_dirs.txt'):
-        class_indecies = []  # just to be safe.
+        class_indices = []  # just to be safe.
         class_list = []
         f = open('selected_dirs.txt', 'r')
         for line in f:
             class_list.append(line)
         f.close()
-        # print("Classes loaded")
-        # print(class_list)
     else:
-        for class_index in class_indecies:
+        for class_index in class_indices:
             folder = wnid_labels[class_index]
             class_list.append(folder)
         f = open('selected_dirs.txt', 'w')
@@ -977,8 +759,12 @@ def create_garbage_links(num_classes, wnid_labels, original_training_path, \
     return class_list
 
 
-def select_input_classes(num_classes, wnid_labels, original_training_path, \
-                         original_validation_path, config_path):
+def select_input_classes(num_classes,
+                         wnid_labels,
+                         original_training_path,
+                         original_validation_path,
+                         config_path):
+
     class_list = []
     c_path = os.path.join(config_path, "config.txt")
     if (os.path.isfile(c_path)):
@@ -1015,7 +801,8 @@ def select_input_classes(num_classes, wnid_labels, original_training_path, \
     return class_list
 
 
-def verify_classes(class_list, original_training_path, \
+def verify_classes(class_list,
+                   original_training_path,
                    original_validation_path):
     if not class_list:
         return True
@@ -1166,6 +953,9 @@ class ExpDecayScheduler(Callback):
 
 class TrainByBranch(Callback):
     '''
+
+        **Deprecated: Shown to be ineffective, remove
+
         Train each branch on Octopus individually by setting
         (trainable=False) for all branches except desired one.
         When epoch % epoch_limit == 0 , change trainable branch.
@@ -1228,7 +1018,6 @@ class TrainByBranch(Callback):
             for layer in model.layers:
                 print(layer, layer.trainable)
 
-
 class OneCycle(Callback):
     def __init__(self, min_lr, max_lr, min_mom, max_mom, step_size, div):
         '''
@@ -1250,6 +1039,7 @@ class OneCycle(Callback):
         self.div = div
 
     def on_batch_begin(self, batch, logs={}):
+
         iteration = float(K.get_value(self.model.optimizer.iterations))
         cycle = math.floor(1.0 + iteration / (2.0 * self.step_size))
         x = math.fabs(iteration / self.step_size - 2.0 * cycle + 1.0)
@@ -1296,9 +1086,9 @@ class SaveWeightsNumpy(Callback):
                  new_training_path,
                  orig_val_img_path,
                  new_val_path,
-                 weight_filename='weights.npy',
-                 best_l_g_filename='max_l_g_weights.npy',
-                 best_loc_filename='loc_weights.npy',
+                 weight_filename='weights.h5',
+                 best_l_g_filename='max_l_g_weights.h5',
+                 best_loc_filename='loc_weights.h5',
                  finetuning=False,
                  multi_outputs=True):
 
@@ -1373,7 +1163,15 @@ class SaveWeightsNumpy(Callback):
             #if epoch % self.period == 0 and epoch >= self.period:
             print("Saving weights to: " + str(self.file_path))
             weights = self.model.get_weights()
-            np.save(self.file_path + self.weight_filename, weights)
+            if '.npy' in self.weight_filename:
+                np.save(self.file_path + self.weight_filename, weights, fix_imports=True)
+            elif '.h5' in self.weight_filename:
+                #self.model.save(self.file_path + self.weight_filename)
+                cp_model = tf.keras.models.clone_model(self.model)
+                stripped_model = sparsity.strip_pruning(cp_model)
+                tf.keras.models.save_model(stripped_model, self.file_path + self.weight_filename, include_optimizer=False)
+            else:
+                print('Unable to save weights. Invalid file format')
             # Check if sum of both global and local accuracy is the highest.
         
             global_local_sum = local_acc + logs.get('val_categorical_accuracy')
@@ -1382,18 +1180,22 @@ class SaveWeightsNumpy(Callback):
             if global_local_sum > self.acc_sum:
                 self.acc_sum = global_local_sum
                 print("Has highest acc_sum. Saving to max_l_g_weights.npy...\n")
-                np.save(self.file_path + self.best_l_g_filename, weights)
+                if '.npy' in self.best_l_g_filename:
+                    np.save(self.file_path + self.best_l_g_filename, weights, fix_imports=True)
+                elif '.h5' in self.best_l_g_filename:
+                    #self.model.save(self.file_path + self.best_l_g_filename)
+                    cp_model = tf.keras.models.clone_model(self.model)
+                    stripped_model = sparsity.strip_pruning(cp_model)
+                    tf.keras.models.save_model(stripped_model, self.file_path + self.best_l_g_filename, include_optimizer=False)
+                else:
+                    print('Unable to save weights. Invalid file format')
             if local_acc >= self.loc_acc:
                 self.loc_acc = local_acc
                 print("Has high local acc. Saving weights now")
-                np.save(self.file_path + self.best_loc_filename, weights)
-    
-    
-                '''if round(local_acc, 3) >= 0.770 and self.finetuning:
-                    # Stop finetuning if local accuracy meets or exceeds unpruned value for this
-                    # number of classes
-                    self.model.stop_training = True
-            change_garbage_class_folder(self.selected_classes, self.wnid_labels, self.orig_train_img_path,
-                                        self.new_training_path)'''
-
-
+                if '.npy' in self.best_loc_filename:
+                    np.save(self.file_path + self.best_loc_filename, weights, fix_imports=True)
+                elif '.h5' in self.best_loc_filename:
+                    #self.model.save(self.file_path + self.best_loc_filename)
+                    cp_model = tf.keras.models.clone_model(self.model)
+                    stripped_model = sparsity.strip_pruning(cp_model)
+                    tf.keras.models.save_model(stripped_model, self.file_path + self.best_loc_filename, include_optimizer=False)

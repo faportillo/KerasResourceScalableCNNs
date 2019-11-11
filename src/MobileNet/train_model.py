@@ -35,31 +35,33 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5'''
 
 # Pitagyro
-'''IMAGENET_PATH = '/HD1/'
+IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'ILSVRC2012_img_train/'
 VAL_2_PATH = 'Val_2/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5'''
+VALID_TIME_MINUTE = 5
 
 # MC
-IMAGENET_PATH = '/HD1/'
+'''IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'train/'
 VAL_2_PATH = 'val/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5
+VALID_TIME_MINUTE = 5'''
 
 def main():
-    model_path = './L10_25p_v1/'
+    model_path = './L15_25p_v1/'
     if not os.path.exists(model_path):
         os.makedirs(model_path)
     # 5 classes
     # ofms = [32, 43, 107, 116, 197, 197, 197, 256, 512, 512, 5]
     # 10 classes
-    ofms = [32, 64, 116, 116, 197, 197, 213, 301, 569, 569, 10]
+    #ofms = [32, 64, 116, 116, 197, 197, 213, 301, 569, 569, 10]
     # 15 classes
-    # ofms = [32, 43, 107, 116, 213, 213, 213, 256, 512, 512, 15]
+    ofms = [32, 43, 107, 116, 213, 213, 284, 320, 512, 512, 15]
+    # 20 classes
+    # ofms = [32, 43, 107, 116, 213, 213, 284, 320, 512, 512, 20]
     print(len(ofms))
     with open(model_path + '/ofms.txt', 'w') as f:
         for ofm in ofms:
@@ -76,6 +78,7 @@ def main():
     load_weights = False
     use_tfrecord_format = False
     use_aux = False
+    format='generator'
 
     g_csn = rs_net_ch(num_classes=num_classes, ofms=ofms)  # Create model
 
@@ -89,30 +92,27 @@ def main():
         g_csn = tu.load_model_npy(g_csn, 'weights.npy')
 
     # Train model
-    if use_tfrecord_format:
-        g_csn_trained = tu.fit_model_tfr(g_csn, num_classes, batch_size=b_size, \
-                                         val_batch_size=val_b_size, val_period=validation_period, op_type='adam',
-                                         model_path=model_path, \
-                                         dataset_path=IMAGENET_PATH, train_path=TRAIN_PATH, \
-                                         val_path=VAL_2_PATH, format='tfrecord', tfr_path='./', meta_path=META_FILE, \
-                                         tb_logpath=model_path + "/logs",
-                                         num_epochs=num_epochs, \
-                                         augment=augment_data, multi_outputs=use_aux)
-    else:
-        g_csn_trained = tu.fit_model(g_csn, num_classes, first_class, last_class, batch_size=b_size, \
-                                     val_batch_size=val_b_size, val_period=validation_period, op_type='adam',
-                                     model_path=model_path, \
-                                     imagenet_path=IMAGENET_PATH, train_path=TRAIN_PATH, \
-                                     val_path=VAL_2_PATH, meta_path=META_FILE, \
-                                     tb_logpath=model_path + "/logs", config_path=CONFIG_PATH,
-                                     num_epochs=num_epochs, \
-                                     augment=augment_data, multi_outputs=use_aux)
+    g_csn_trained = tu.fit_model(g_csn,
+                                 num_classes,
+                                 first_class,
+                                 last_class,
+                                 batch_size=b_size,
+                                 val_batch_size=val_b_size,
+                                 val_period=validation_period,
+                                 op_type='adam',
+                                 format=format,
+                                 model_path=model_path,
+                                 imagenet_path=IMAGENET_PATH,
+                                 train_path=TRAIN_PATH,
+                                 val_path=VAL_2_PATH,
+                                 meta_path=META_FILE,
+                                 tb_logpath=model_path + "/logs",
+                                 num_epochs=num_epochs,
+                                 augment=augment_data,
+                                 garbage_multiplier=8,
+                                 workers=6)
 
     shutil.move("selected_dirs.txt", model_path)
-    '''shutil.move("weights.npy", model_path)
-    shutil.move("weights.hdf5", model_path)
-    shutil.move("rs_model_final.h5", model_path)'''
-
 
 if __name__ == '__main__':
     main()

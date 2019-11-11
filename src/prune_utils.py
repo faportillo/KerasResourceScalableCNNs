@@ -29,17 +29,12 @@ from tensorflow.python.keras.metrics import top_k_categorical_accuracy,categoric
 from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint, \
     Callback, LearningRateScheduler, TerminateOnNaN, EarlyStopping
 
-import tensorflow_model_optimization as tfmot
+#import tensorflow_model_optimization as tfmot
 from tensorflow_model_optimization.sparsity import keras as sparsity
 
 '''
     ToDo: 
-    - Need to have methods to evaluate local and global accuracy during
-      inference. 
-    
-    - Need to have method that accepts model and prunes it based on desired 
-      percent error or parameter count *Check Song Han paper to see how they
-      determined stop to pruning.
+    - Implement channel-based pruning like in NVIDIA Paper
 '''
 
 def remove_channels(model, layer, channel_list):
@@ -91,8 +86,13 @@ def prune_model(model, model_type='googlenet_rs',
                 batch_size=64,
                 val_batch_size=50,
                 val_period=1,
+                image_size=227,
+                initial_sparsity=0.0,
+                final_sparsity=0.5,
+                prune_frequency=1,
                 loss_type='focal',
                 op_type='adam',
+                stopping_patience=8,
                 imagenet_path=None,
                 model_path='./',
                 train_path=None,
@@ -107,7 +107,7 @@ def prune_model(model, model_type='googlenet_rs',
                 workers=1):
 
     '''
-        Prune a resource-scalable model
+        Prune a resource-scalable model using magnitude-based weight pruning
 
     :param model:
     :param model_type: sees if its resource scalable model or a given Keras default model
@@ -135,19 +135,19 @@ def prune_model(model, model_type='googlenet_rs',
     # copy selected_dirs.txt to current directory if not already in it
     if not path.exists('selected_dirs.txt'):
         try:
-            copyfile(model_path + 'selected_dirs.txt', './')
+            copyfile(model_path + 'selected_dirs.txt', './selected_dirs.txt')
             print("File copied from %s" % model_path)
         except IOError as e:
-            print("Unable to copy file. %s" % e)
+            print("prune_model: Unable to copy file. %s" % e)
             exit(1)
         except:
-            print("Unexpected error:", sys.exc_info())
+            print("prune_model: Unexpected error:", sys.exc_info())
             exit(1)
 
     if model_type == 'googlenet_rs' or model_type == 'mobilenet_rs':
         new_training_path = os.path.join(imagenet_path, symlink_prefix + "_TRAIN_")
         new_validation_path = os.path.join(imagenet_path, symlink_prefix + "_VAL_")
-        selected_classes = tu.create_garbage_links(num_classes, wnid_labels, train_img_path, \
+        selected_classes = tu.create_garbage_links(num_classes, wnid_labels, train_img_path,
                                                 new_training_path, val_img_path, new_validation_path)
         tu.create_garbage_class_folder(selected_classes, wnid_labels,
                                     train_img_path, new_training_path,
@@ -158,13 +158,18 @@ def prune_model(model, model_type='googlenet_rs',
     tb_callback = TensorBoard(log_dir=tb_logpath)
     termNaN_callback = TerminateOnNaN()
 
-    early_stop = EarlyStopping(monitor='val_categorical_accuracy',
+    early_stop_local = EarlyStopping(monitor='val_local_accuracy',
                                mode='max',
                                verbose=1,
-                               patience=8,
+                               patience=stopping_patience,
                                min_delta=1)
+    early_stop_global = EarlyStopping(monitor='val_global_accuracy',
+                                     mode='max',
+                                     verbose=1,
+                                     patience=stopping_patience,
+                                     min_delta=4)
     save_weights_std_callback = ModelCheckpoint(model_path + 'best_pruned_global_weights.hdf5',
-                                                monitor='val_categorical_accuracy',
+                                                monitor='val_local_accuracy',
                                                 verbose=1,
                                                 save_best_only=True,
                                                 save_weights_only=False,
@@ -179,14 +184,14 @@ def prune_model(model, model_type='googlenet_rs',
                                              new_training_path=new_training_path,
                                              orig_val_img_path=orig_val_img_path,
                                              new_val_path=val_img_path,
-                                             weight_filename='pruned_weights.npy',
-                                             best_l_g_filename='pruned_max_l_g_weights.npy',
-                                             best_loc_filename='pruned_loc_weights.npy',
+                                             weight_filename='pruned_weights.h5',
+                                             best_l_g_filename='pruned_max_l_g_weights.h5',
+                                             best_loc_filename='pruned_loc_weights.h5',
                                              multi_outputs=multi_outputs)
     callbacks = [tb_callback, termNaN_callback,
                  sparsity.UpdatePruningStep(),
-                 sparsity.PruningSummaries(log_dir=tb_logpath, profile_batch=0),
-                 early_stop, save_weights_callback, save_weights_std_callback]
+                 sparsity.PruningSummaries(log_dir=tb_logpath),
+                 early_stop_local, early_stop_global, save_weights_callback, save_weights_std_callback]
 
     if op_type == 'rmsprop':
         '''
@@ -209,21 +214,22 @@ def prune_model(model, model_type='googlenet_rs',
 
     end_step = np.ceil(1.0 * ((num_classes-1) * 1300)+(1300*garbage_multiplier) / batch_size).astype(np.int32) * num_epochs
     orig_stdout = sys.stdout
-    f = open('orig_model_summary.txt', 'w')
+    f = open(model_path + 'orig_model_summary.txt', 'w')
     sys.stdout = f
     print(model.summary())
     sys.stdout = orig_stdout
     f.close()
     print("Defining pruning schedule...")
-    new_pruning_params = {'pruning_schedule': sparsity.PolynomialDecay(initial_sparsity=0.0,
-                                                                       final_sparsity=0.50,
+    new_pruning_params = {'pruning_schedule': sparsity.PolynomialDecay(initial_sparsity=initial_sparsity,
+                                                                       final_sparsity=final_sparsity,
                                                                        begin_step=0,
                                                                        end_step=end_step,
-                                                                       frequency=100)}
+                                                                       frequency=prune_frequency)}
 
     pruned_model = sparsity.prune_low_magnitude(model, **new_pruning_params)
     print("Compiling model")
     if model_type == 'googlenet_rs': #resource-scalable googlenet
+
         if multi_outputs:
             if loss_type == 'focal':
                 loss1 = tu.focal_loss(alpha=.25, gamma=2)
@@ -234,7 +240,7 @@ def prune_model(model, model_type='googlenet_rs',
 
             train_data, val_data = tu.imagenet_generator_multi(train_img_path, \
                                                             val_img_path, batch_size=batch_size, \
-                                                            do_augment=augment)
+                                                            do_augment=augment, image_size=image_size)
 
             pruned_model.compile(optimizer=op_type, loss=[loss1, loss2],
                           metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy],
@@ -248,7 +254,7 @@ def prune_model(model, model_type='googlenet_rs',
             train_data, val_data = tu.imagenet_generator(train_img_path, \
                                                                val_img_path,
                                                                batch_size=batch_size, \
-                                                               do_augment=augment)
+                                                               do_augment=augment, image_size=image_size)
             pruned_model.compile(optimizer=op_type, loss=[loss],
                                  metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])
 
@@ -258,9 +264,9 @@ def prune_model(model, model_type='googlenet_rs',
         else:
             loss = tu.dual_loss(alpha=.25, gamma=2)
 
-        train_data, val_data = tu.imagenet_generator(train_img_path, \
+        train_data, val_data = tu.imagenet_generator(train_img_path,
                                                      val_img_path,
-                                                     batch_size=batch_size, \
+                                                     batch_size=batch_size,
                                                      do_augment=augment)
         pruned_model.compile(optimizer=op_type, loss=[loss],
                              metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])
@@ -270,7 +276,7 @@ def prune_model(model, model_type='googlenet_rs',
                       loss='categorical_crossentropy',
                       metrics=['accuracy'])
 
-        train_data, val_data = tu.imagenet_generator(train_img_path, \
+        train_data, val_data = tu.imagenet_generator(train_img_path,
                                                         val_img_path, batch_size=batch_size, \
                                                         do_augment=augment)
     else:
@@ -278,7 +284,7 @@ def prune_model(model, model_type='googlenet_rs',
                              loss='categorical_crossentropy',
                              metrics=['accuracy'])
 
-        train_data, val_data = tu.imagenet_generator(train_img_path, \
+        train_data, val_data = tu.imagenet_generator(train_img_path,
                                                         val_img_path, batch_size=batch_size, \
                                                         do_augment=augment)
     print("Pruning model")
@@ -287,11 +293,10 @@ def prune_model(model, model_type='googlenet_rs',
     else:
         use_multiproc = False
     pruned_model.fit_generator(train_data, epochs=num_epochs,
-                        steps_per_epoch=int(((num_classes-1) * 1300)+(1300*garbage_multiplier)) / batch_size, \
+                        steps_per_epoch=int(((num_classes-1) * 1300)+(1300*garbage_multiplier)) / batch_size,
                         validation_data=val_data,
-                        validation_steps=
-                            int(50000 / val_batch_size),
-                        verbose=2, callbacks=callbacks, workers=workers,
+                        validation_steps=int(50000 / val_batch_size),
+                        verbose=1, callbacks=callbacks, workers=workers,
                         use_multiprocessing=use_multiproc)
 
     return pruned_model

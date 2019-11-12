@@ -1095,9 +1095,9 @@ class SaveWeightsNumpy(Callback):
                  new_training_path,
                  orig_val_img_path,
                  new_val_path,
-                 weight_filename='weights.h5',
-                 best_l_g_filename='max_l_g_weights.h5',
-                 best_loc_filename='loc_weights.h5',
+                 weight_filename='weights.npy',
+                 best_l_g_filename='max_l_g_weights.npy',
+                 best_loc_filename='loc_weights.npy',
                  is_pruning=False,
                  finetuning=False,
                  multi_outputs=True):

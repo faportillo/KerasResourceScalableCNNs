@@ -7,8 +7,6 @@ from scipy.io import loadmat
 from PIL import Image
 import argparse, shutil
 
-import prune_utils as pu
-
 # from Data_Augmentation import augment
 from tensorflow.python.keras.layers import Input, Dense, Convolution2D, \
     MaxPooling2D, AveragePooling2D, ZeroPadding2D, Dropout, Flatten, Reshape, \
@@ -23,7 +21,6 @@ from tensorflow.python.keras.metrics import top_k_categorical_accuracy, \
 from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint, \
     Callback, LearningRateScheduler, TerminateOnNaN
 from tensorflow.python.ops import clip_ops
-from tensorflow_model_optimization.sparsity import keras as sparsity
 
 # from model_shell import google_csn
 
@@ -1121,7 +1118,11 @@ class SaveWeightsNumpy(Callback):
         self.multi_outputs = multi_outputs
         self.loc_acc = 0.0
         self.acc_sum = 0.0
-
+        
+        if self.is_pruning:
+            import prune_utils as pu
+            from tensorflow_model_optimization.sparsity import keras as sparsity
+    
     def on_epoch_end(self, epoch, logs={}):
         print("Epoch: " + str(epoch))
         if ((epoch+1) % self.period) == 0 and epoch > 1:

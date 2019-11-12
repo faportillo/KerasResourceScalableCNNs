@@ -66,6 +66,7 @@ def main():
         mobilenet
     '''
     model_type = 'mobilenet_rs'
+    machine_name = 'pitagyro'
 
     do_orig_eval = False
 
@@ -109,33 +110,41 @@ def main():
                                   num_classes=num_classes,
                                   batch_size=32,
                                   initial_sparsity=0.0,
-                                  final_sparsity=0.50,
+                                  final_sparsity=0.90,
                                   prune_frequency=1,
                                   stopping_patience=4,
+                                  schedule='polynomial',
                                   model_path=model_path,
                                   imagenet_path=IMAGENET_PATH,
                                   train_path=TRAIN_PATH,
                                   val_path=VAL_2_PATH,
                                   meta_path=META_FILE,
                                   tb_logpath=model_path+"prune_logs",
-                                  num_epochs=24,
+                                  num_epochs=1,
                                   garbage_multiplier=8,
                                   workers=6)
 
 
-    # Load model with best local and global accuracy
-    '''max_l_g_model = load_model(model_path + 'pruned_max_l_g_weights.h5')
+    # Load model with best local and global accuracy if file exists
+    # Else just use returned model from last pruning iteration
+    if path.exists(model_path + 'pruned_max_l_g_weights.h5'):
+        max_l_g_model = load_model(model_path + 'pruned_max_l_g_weights.h5')
+        final_model = sparsity.strip_pruning(max_l_g_model)
+    else:
+        final_model = sparsity.strip_pruning(pruned_model)
 
-    local_accuracy = eu.get_local_accuracy(max_l_g_model, IMAGENET_PATH,
-                                           VAL_2_PATH, model_path + 'selected_dirs.txt')
-    global_acc, raw_acc = eu.get_global_accuracy(max_l_g_model, num_classes, IMAGENET_PATH,
-                                                 VAL_2_PATH, META_FILE,
-                                                 model_path + 'selected_dirs.txt',
-                                                 raw_acc=True)'''
-    local_accuracy = eu.get_local_accuracy(pruned_model, IMAGENET_PATH,
-                                           VAL_2_PATH, model_path + 'selected_dirs.txt')
-    global_acc, raw_acc = eu.get_global_accuracy(pruned_model, num_classes, IMAGENET_PATH,
-                                                 VAL_2_PATH, META_FILE,
+    # Save model
+    final_model.save(model_path + 'final_pruned_model.h5')
+
+    local_accuracy = eu.get_local_accuracy(final_model,
+                                           IMAGENET_PATH,
+                                           VAL_2_PATH,
+                                           model_path + 'selected_dirs.txt')
+    global_acc, raw_acc = eu.get_global_accuracy(final_model,
+                                                 num_classes,
+                                                 IMAGENET_PATH,
+                                                 VAL_2_PATH,
+                                                 META_FILE,
                                                  model_path + 'selected_dirs.txt',
                                                  raw_acc=True)
 
@@ -144,23 +153,17 @@ def main():
     print("Global Accuracy: " + str(global_acc))
     print("\nWriting results to file...")
     with open(model_path + 'pruned_model_accuracy.txt', 'w') as f:
-        f.write('Machine: pitagyro\n')
+        f.write('Machine: ' + machine_name + '\n')
         f.write(model_path + '\n')
         f.write('Local Accuracy: %f\n' % local_accuracy)
         f.write('Global Accuracy: %f\n' % global_acc)
         f.write('Raw Accuracy: %f\n' % raw_acc)
 
-    # Save model
-    final_model = sparsity.strip_pruning(pruned_model)
-    '''max_l_g_model.save(model_path + 'final_pruned_model.h5')
-    # Write pruned model summary to txt file
-    orig_stdout = sys.stdout
-    with open(model_path + 'pruned_model_summary.txt', 'w') as f:
-        sys.stdout = f
-        print(max_l_g_model.summary())
-        f.write(max_l_g_model.summary())
-        sys.stdout = orig_stdout'''
-    final_model.save(model_path + 'final_pruned_model.h5')
+    # Calculate sparsity
+    sparsity_val = pu.calculate_sparsity(final_model)
+    with open(self.file_path + 'sparsity_pruning_logs.txt', 'a+') as f:
+        f.write('\nFINAL SPARSITY: %f\n' % sparsity_val)
+
     # Write pruned model summary to txt file
     orig_stdout = sys.stdout
     with open(model_path + 'pruned_model_summary.txt', 'w') as f:

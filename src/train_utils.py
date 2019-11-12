@@ -6,6 +6,9 @@ import math
 from scipy.io import loadmat
 from PIL import Image
 import argparse, shutil
+
+import prune_utils as pu
+
 # from Data_Augmentation import augment
 from tensorflow.python.keras.layers import Input, Dense, Convolution2D, \
     MaxPooling2D, AveragePooling2D, ZeroPadding2D, Dropout, Flatten, Reshape, \
@@ -922,13 +925,19 @@ def imagenet_size(im_source):
             n += 1
     return n
 
+def copyModel2Model(model_source, model_target, certain_layer=""):
+    for l_tg, l_sr in zip(model_target.layers, model_source.layers):
+        wk0 = l_sr.get_weights()
+        l_tg.set_weights(wk0)
+        if l_tg.name == certain_layer:
+            break
+    print("Model source was copied into Model target")
+
 
 '''
     Used for RMSprop optimizer for learning rate decay defined in
     Inception V4 Paper  https://arxiv.org/abs/1602.07261
 '''
-
-
 class ExpDecayScheduler(Callback):
     def __init__(self, initial_lr, n_epoch, decay):
         '''
@@ -1089,6 +1098,7 @@ class SaveWeightsNumpy(Callback):
                  weight_filename='weights.h5',
                  best_l_g_filename='max_l_g_weights.h5',
                  best_loc_filename='loc_weights.h5',
+                 is_pruning=False,
                  finetuning=False,
                  multi_outputs=True):
 
@@ -1107,6 +1117,7 @@ class SaveWeightsNumpy(Callback):
         self.best_loc_filename=best_loc_filename
         self.orig_model = orig_model
         self.finetuning = finetuning
+        self.is_pruning = is_pruning
         self.multi_outputs = multi_outputs
         self.loc_acc = 0.0
         self.acc_sum = 0.0
@@ -1167,9 +1178,10 @@ class SaveWeightsNumpy(Callback):
                 np.save(self.file_path + self.weight_filename, weights, fix_imports=True)
             elif '.h5' in self.weight_filename:
                 #self.model.save(self.file_path + self.weight_filename)
-                cp_model = tf.keras.models.clone_model(self.model)
-                stripped_model = sparsity.strip_pruning(cp_model)
-                tf.keras.models.save_model(stripped_model, self.file_path + self.weight_filename, include_optimizer=False)
+                '''cp_model = tf.keras.models.clone_model(self.model)
+                stripped_model = sparsity.strip_pruning(cp_model)'''
+                stripped_model = sparsity.strip_pruning(self.model)
+                tf.keras.models.save_model(stripped_model, self.file_path + self.weight_filename, include_optimizer=True)
             else:
                 print('Unable to save weights. Invalid file format')
             # Check if sum of both global and local accuracy is the highest.
@@ -1184,9 +1196,10 @@ class SaveWeightsNumpy(Callback):
                     np.save(self.file_path + self.best_l_g_filename, weights, fix_imports=True)
                 elif '.h5' in self.best_l_g_filename:
                     #self.model.save(self.file_path + self.best_l_g_filename)
-                    cp_model = tf.keras.models.clone_model(self.model)
-                    stripped_model = sparsity.strip_pruning(cp_model)
-                    tf.keras.models.save_model(stripped_model, self.file_path + self.best_l_g_filename, include_optimizer=False)
+                    '''cp_model = tf.keras.models.clone_model(self.model)
+                    stripped_model = sparsity.strip_pruning(cp_model)'''
+                    stripped_model = sparsity.strip_pruning(self.model)
+                    tf.keras.models.save_model(stripped_model, self.file_path + self.best_l_g_filename, include_optimizer=True)
                 else:
                     print('Unable to save weights. Invalid file format')
             if local_acc >= self.loc_acc:
@@ -1196,6 +1209,13 @@ class SaveWeightsNumpy(Callback):
                     np.save(self.file_path + self.best_loc_filename, weights, fix_imports=True)
                 elif '.h5' in self.best_loc_filename:
                     #self.model.save(self.file_path + self.best_loc_filename)
-                    cp_model = tf.keras.models.clone_model(self.model)
-                    stripped_model = sparsity.strip_pruning(cp_model)
-                    tf.keras.models.save_model(stripped_model, self.file_path + self.best_loc_filename, include_optimizer=False)
+                    '''cp_model = tf.keras.models.clone_model(self.model)
+                    stripped_model = sparsity.strip_pruning(cp_model)'''
+                    stripped_model = sparsity.strip_pruning(self.model)
+                    tf.keras.models.save_model(stripped_model, self.file_path + self.best_loc_filename, include_optimizer=True)
+
+            if self.is_pruning:
+                sparsity_val = pu.calculate_sparsity(self.model)
+                with open(self.file_path + 'sparsity_pruning_logs.txt', 'a+') as f:
+                    f.write('Epoch: %d\n' % epoch)
+                    f.write('Sparsity: %f\n' % sparsity_val)

@@ -93,6 +93,7 @@ def prune_model(model, model_type='googlenet_rs',
                 loss_type='focal',
                 op_type='adam',
                 stopping_patience=8,
+                schedule='polynomial',
                 imagenet_path=None,
                 model_path='./',
                 train_path=None,
@@ -158,6 +159,10 @@ def prune_model(model, model_type='googlenet_rs',
     tb_callback = TensorBoard(log_dir=tb_logpath)
     termNaN_callback = TerminateOnNaN()
 
+    ''' 
+        Want to give more leeway for stopping if the local accuracy drops
+        But if the global accuracy continues to drop, then stop pruning
+    '''
     early_stop_local = EarlyStopping(monitor='val_local_accuracy',
                                mode='max',
                                verbose=1,
@@ -166,8 +171,8 @@ def prune_model(model, model_type='googlenet_rs',
     early_stop_global = EarlyStopping(monitor='val_global_accuracy',
                                      mode='max',
                                      verbose=1,
-                                     patience=stopping_patience,
-                                     min_delta=4)
+                                     patience=int(stopping_patience/2),
+                                     min_delta=1)
     save_weights_std_callback = ModelCheckpoint(model_path + 'best_pruned_global_weights.hdf5',
                                                 monitor='val_local_accuracy',
                                                 verbose=1,
@@ -187,7 +192,8 @@ def prune_model(model, model_type='googlenet_rs',
                                              weight_filename='pruned_weights.h5',
                                              best_l_g_filename='pruned_max_l_g_weights.h5',
                                              best_loc_filename='pruned_loc_weights.h5',
-                                             multi_outputs=multi_outputs)
+                                             multi_outputs=multi_outputs,
+                                             is_pruning=True)
     callbacks = [tb_callback, termNaN_callback,
                  sparsity.UpdatePruningStep(),
                  sparsity.PruningSummaries(log_dir=tb_logpath),
@@ -198,21 +204,23 @@ def prune_model(model, model_type='googlenet_rs',
             If the optimizer type is RMSprop, decay learning rate
             and append to callback list
         '''
-        lr_decay_callback = ExpDecayScheduler(decay_params[0], \
+        lr_decay_callback = ExpDecayScheduler(decay_params[0],
                                               decay_params[1], decay_params[2])
         callback_list.append(lr_decay_callback)
     elif op_type == 'adam':
         print ('Optimizer: Adam')
     elif op_type == 'sgd':
         print('Optimizer: SGD')
-        one_cycle = OneCycle(clrcm_params[0], clrcm_params[1], clrcm_params[2], \
+        one_cycle = OneCycle(clrcm_params[0], clrcm_params[1], clrcm_params[2],
                              clrcm_params[3], clrcm_params[4], clrcm_params[5])
         callback_list.append(one_cycle)
     else:
         # print ('Invalid Optimizer. Exiting...')
         exit()
 
-    end_step = np.ceil(1.0 * ((num_classes-1) * 1300)+(1300*garbage_multiplier) / batch_size).astype(np.int32) * num_epochs
+    # Make end step one epoch less so it gives model one last epoch to finetune better
+    end_step = np.ceil(1.0 * ((num_classes-1) * 1300)+(1300*garbage_multiplier)
+                       / batch_size).astype(np.int32) * (num_epochs - 1)
     orig_stdout = sys.stdout
     f = open(model_path + 'orig_model_summary.txt', 'w')
     sys.stdout = f
@@ -220,11 +228,21 @@ def prune_model(model, model_type='googlenet_rs',
     sys.stdout = orig_stdout
     f.close()
     print("Defining pruning schedule...")
-    new_pruning_params = {'pruning_schedule': sparsity.PolynomialDecay(initial_sparsity=initial_sparsity,
-                                                                       final_sparsity=final_sparsity,
-                                                                       begin_step=0,
-                                                                       end_step=end_step,
-                                                                       frequency=prune_frequency)}
+    if schedule == 'polynomial':
+        new_pruning_params = {'pruning_schedule': sparsity.PolynomialDecay(initial_sparsity=initial_sparsity,
+                                                                           final_sparsity=final_sparsity,
+                                                                           begin_step=0,
+                                                                           end_step=end_step,
+                                                                           frequency=prune_frequency)}
+    elif schedule == 'constant':
+        new_pruning_params = {'pruning_schedule': sparsity.ConstantSparsity(initial_sparsity=initial_sparsity,
+                                                                            final_sparsity=final_sparsity,
+                                                                            begin_step=0,
+                                                                            end_step=end_step,
+                                                                            frequency=prune_frequency)}
+    else:
+        print("Invalid Pruning Schedule selection: " + str(schedule))
+        exit()
 
     pruned_model = sparsity.prune_low_magnitude(model, **new_pruning_params)
     print("Compiling model")
@@ -238,8 +256,8 @@ def prune_model(model, model_type='googlenet_rs',
                 loss1 = tu.dual_loss(alpha=.25, gamma=2)
                 loss2 = tu.dual_loss(alpha=.25, gamma=2)
 
-            train_data, val_data = tu.imagenet_generator_multi(train_img_path, \
-                                                            val_img_path, batch_size=batch_size, \
+            train_data, val_data = tu.imagenet_generator_multi(train_img_path,
+                                                            val_img_path, batch_size=batch_size,
                                                             do_augment=augment, image_size=image_size)
 
             pruned_model.compile(optimizer=op_type, loss=[loss1, loss2],
@@ -251,9 +269,9 @@ def prune_model(model, model_type='googlenet_rs',
             else:
                 loss = tu.dual_loss(alpha=.25, gamma=2)
 
-            train_data, val_data = tu.imagenet_generator(train_img_path, \
+            train_data, val_data = tu.imagenet_generator(train_img_path,
                                                                val_img_path,
-                                                               batch_size=batch_size, \
+                                                               batch_size=batch_size,
                                                                do_augment=augment, image_size=image_size)
             pruned_model.compile(optimizer=op_type, loss=[loss],
                                  metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])
@@ -277,7 +295,7 @@ def prune_model(model, model_type='googlenet_rs',
                       metrics=['accuracy'])
 
         train_data, val_data = tu.imagenet_generator(train_img_path,
-                                                        val_img_path, batch_size=batch_size, \
+                                                        val_img_path, batch_size=batch_size,
                                                         do_augment=augment)
     else:
         pruned_model.compile(optimizer=op_type,
@@ -285,7 +303,7 @@ def prune_model(model, model_type='googlenet_rs',
                              metrics=['accuracy'])
 
         train_data, val_data = tu.imagenet_generator(train_img_path,
-                                                        val_img_path, batch_size=batch_size, \
+                                                        val_img_path, batch_size=batch_size,
                                                         do_augment=augment)
     print("Pruning model")
     if multi_outputs:
@@ -300,3 +318,24 @@ def prune_model(model, model_type='googlenet_rs',
                         use_multiprocessing=use_multiproc)
 
     return pruned_model
+
+def calculate_sparsity(model):
+    total_params = 0.0
+    non_zero_params = 0.0
+    for layer in model.layers:
+        if ('Conv2D' in layer.__class__.__name__ or 'Dense' in layer.__class__.__name__) \
+                and 'aux' not in layer.name:
+            print(layer.__class__.__name__)
+            # Get weights/biases and ensure there are no nan values
+            weights = np.nan_to_num(layer.get_weights()[0])
+            #bias = np.nan_to_num(layer.get_weights()[1])
+            # Count total parameters and total non-zero parameters
+            total_params += float(weights.size)# + bias.size)
+            non_zero_params += float(np.count_nonzero(weights))# + np.count_nonzero(bias))
+        else:
+            continue
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        total_sparsity = 1.0 - np.true_divide(non_zero_params / total_params)
+        total_sparsity = np.nan_to_num(total_sparsity)
+    return total_sparsity

@@ -15,6 +15,7 @@ p = path.abspath(path.join(__file__, "../../.."))
 sys.path.append(p)
 import src.train_utils as tu
 import src.eval_utils as eu
+import src.prune_utils as pu
 from rs_net_ch import rs_net_ch
 
 from tensorflow.python.keras.optimizers import Adam, RMSprop
@@ -55,6 +56,8 @@ def main():
 
     model_path = './L15_25p_v1/'
 
+    is_pruned = True
+
     # Load ofms list from .txt file
     ofms = []
     with open(model_path + 'ofms.txt') as f:
@@ -67,8 +70,14 @@ def main():
     # Create model
     model = rs_net_ch(num_classes=num_classes, ofms=ofms)
     #model = tu.load_model_npy(model, model_path + 'pruned_max_l_g_weights.npy')
-    model = load_model(model_path + 'pruned_max_l_g_weights.h5')
-
+    model = load_model(model_path + 'pruned_loc_weights.h5')
+    model.compile(optimizer='adam', loss=[tu.focal_loss(alpha=.25, gamma=2)],
+                  metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])
+    if is_pruned:
+        sparsity_val = pu.calculate_sparsity(model)
+        print('\n\nCalculating sparsity... ')
+        print(sparsity_val)
+        print('\n\n')
     # Write pruned model summary to txt file
     orig_stdout = sys.stdout
     f = open(model_path + 'pruned_model_summary.txt', 'w')
@@ -84,7 +93,6 @@ def main():
                                                  VAL_2_PATH, META_FILE,
                                                  model_path + 'selected_dirs.txt',
                                                  raw_acc=True, symlink_prefix='1GARBAGE')
-
 
     print("\nRaw Accuracy: " + str(raw_acc))
     print("Local Accuracy: " + str(local_accuracy))

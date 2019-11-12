@@ -1122,6 +1122,8 @@ class SaveWeightsNumpy(Callback):
         if self.is_pruning:
             import prune_utils as pu
             from tensorflow_model_optimization.sparsity import keras as sparsity
+            self.pu = pu
+            self.sparsity = sparsity
     
     def on_epoch_end(self, epoch, logs={}):
         print("Epoch: " + str(epoch))
@@ -1181,7 +1183,7 @@ class SaveWeightsNumpy(Callback):
                 #self.model.save(self.file_path + self.weight_filename)
                 '''cp_model = tf.keras.models.clone_model(self.model)
                 stripped_model = sparsity.strip_pruning(cp_model)'''
-                stripped_model = sparsity.strip_pruning(self.model)
+                stripped_model = self.sparsity.strip_pruning(self.model)
                 tf.keras.models.save_model(stripped_model, self.file_path + self.weight_filename, include_optimizer=True)
             else:
                 print('Unable to save weights. Invalid file format')
@@ -1199,7 +1201,7 @@ class SaveWeightsNumpy(Callback):
                     #self.model.save(self.file_path + self.best_l_g_filename)
                     '''cp_model = tf.keras.models.clone_model(self.model)
                     stripped_model = sparsity.strip_pruning(cp_model)'''
-                    stripped_model = sparsity.strip_pruning(self.model)
+                    stripped_model = self.sparsity.strip_pruning(self.model)
                     tf.keras.models.save_model(stripped_model, self.file_path + self.best_l_g_filename, include_optimizer=True)
                 else:
                     print('Unable to save weights. Invalid file format')
@@ -1212,11 +1214,11 @@ class SaveWeightsNumpy(Callback):
                     #self.model.save(self.file_path + self.best_loc_filename)
                     '''cp_model = tf.keras.models.clone_model(self.model)
                     stripped_model = sparsity.strip_pruning(cp_model)'''
-                    stripped_model = sparsity.strip_pruning(self.model)
+                    stripped_model = self.sparsity.strip_pruning(self.model)
                     tf.keras.models.save_model(stripped_model, self.file_path + self.best_loc_filename, include_optimizer=True)
 
             if self.is_pruning:
-                sparsity_val = pu.calculate_sparsity(self.model)
+                sparsity_val = self.pu.calculate_sparsity(self.model)
                 with open(self.file_path + 'sparsity_pruning_logs.txt', 'a+') as f:
                     f.write('Epoch: %d\n' % epoch)
                     f.write('Sparsity: %f\n' % sparsity_val)

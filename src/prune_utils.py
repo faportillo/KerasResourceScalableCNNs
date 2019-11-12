@@ -336,6 +336,6 @@ def calculate_sparsity(model):
             continue
 
     with np.errstate(divide='ignore', invalid='ignore'):
-        total_sparsity = 1.0 - np.true_divide(non_zero_params / total_params)
+        total_sparsity = 1.0 - np.true_divide(non_zero_params, total_params)
         total_sparsity = np.nan_to_num(total_sparsity)
     return total_sparsity

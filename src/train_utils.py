@@ -1188,8 +1188,14 @@ class SaveWeightsNumpy(Callback):
             else:
                 print('Unable to save weights. Invalid file format')
             # Check if sum of both global and local accuracy is the highest.
-        
-            global_local_sum = local_acc + logs.get('val_categorical_accuracy')
+            if self.multi_outputs:
+                if self.is_pruning:
+                    global_val_acc = logs.get('val_prune_low_magnitude_prob_main_categorical_accuracy')
+                else:
+                    global_val_acc = logs.get('val_prob_main_categorical_accuracy')
+            else:
+                global_val_acc = logs.get('val_categorical_accuracy')
+            global_local_sum = local_acc + global_val_acc
 
             print("\nglobal_local_sum: " + str(global_local_sum))
             if global_local_sum > self.acc_sum:
@@ -1218,7 +1224,7 @@ class SaveWeightsNumpy(Callback):
                     tf.keras.models.save_model(stripped_model, self.file_path + self.best_loc_filename, include_optimizer=True)
 
             if self.is_pruning:
-                sparsity_val = self.pu.calculate_sparsity(self.model)
+                sparsity_val = self.pu.calculate_sparsity(self.sparsity.strip_pruning(self.model))
                 print("Current Sparsity: %f" % sparsity_val)
                 with open(self.file_path + 'sparsity_pruning_logs.txt', 'a+') as f:
                     f.write('Epoch: %d\n' % epoch)

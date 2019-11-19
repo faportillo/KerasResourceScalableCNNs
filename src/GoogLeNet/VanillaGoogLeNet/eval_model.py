@@ -17,7 +17,8 @@ p = path.abspath(path.join(__file__, "../../.."))
 sys.path.append(p)
 import src.train_utils as tu
 import src.eval_utils as eu
-from rs_net_ch import rs_net_ch
+import src.GoogLeNet.VanillaGoogLeNet.inception_v1 as inc_v1
+
 
 from tensorflow.python.keras.optimizers import Adam, RMSprop
 from tensorflow.python.keras.backend import int_shape
@@ -54,24 +55,29 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5
 
 def main():
+    model_path = './L20_s3_trial2_pg/'
+    model_type = 'googlenet'
 
-    model_path = './L15_s3_trial4/'
+    is_pruned = False
 
-    is_pruned = True
+    if model_type == 'googlenet':
+        model = inc_v1.InceptionV1(include_top=True, weights='imagenet')
+        #model.load_weights(model_path + 'googlenet_weights.h5')
+    elif model_type == 'mobilenet':
+        return  # put mobilenet code here
+    else:  # some form of resource-scalable cnn
+        # Load ofms list from .txt file
+        ofms = []
+        with open(model_path + 'ofms.txt') as f:
+            for line in f:
+                ofm = line[:-1]
+                ofms.append(ofm)
+        num_classes = int(ofms[-1])  # number of classes
 
-    # Load ofms list from .txt file
-    ofms = []
-    with open(model_path + 'ofms.txt') as f:
-        for line in f:
-            ofm = line[:-1]
-            ofms.append(int(ofm))
+        # Create model
+        model = rs_net_ch(num_classes=num_classes, ofms=ofms)
+        model = tu.load_model_npy(model, model_path + 'max_l_g_weights.npy')
 
-    num_classes = ofms[-1]  # number of classes
-
-    # Create model
-    model = rs_net_ch(num_classes=num_classes, ofms=ofms)
-    #model = tu.load_model_npy(model, model_path + 'max_l_g_weights.npy')
-    model = load_model(model_path + 'pruned_max_l_g_weights.h5')
     '''model.compile(optimizer='adam', loss=[tu.focal_loss(alpha=.25, gamma=2)],
                   metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])'''
     if is_pruned:
@@ -85,38 +91,35 @@ def main():
     # Write pruned model summary to txt file
     orig_stdout = sys.stdout
     f = open(model_path + 'model_summary.txt', 'w')
-
     sys.stdout = f
     print(model.summary())
     sys.stdout = orig_stdout
     f.close()
 
     #Get raw, local, and global accuracy
-    local_accuracy = eu.get_local_accuracy(model, IMAGENET_PATH,
-                                           VAL_2_PATH, model_path + 'selected_dirs.txt')
-    global_acc, raw_acc = eu.get_global_accuracy(model, num_classes, IMAGENET_PATH,
+    local_accuracy = eu.get_local_accuracy(model,
+                                           IMAGENET_PATH,
+                                           VAL_2_PATH,
+                                           model_path + 'selected_dirs.txt',
+                                           image_size=224,
+                                           is_rs_model=False)
+    '''global_acc, raw_acc = eu.get_global_accuracy(model, num_classes, IMAGENET_PATH,
                                                  VAL_2_PATH, META_FILE,
                                                  model_path + 'selected_dirs.txt',
-                                                 raw_acc=True, symlink_prefix='1GARBAGE')
+                                                 raw_acc=True, symlink_prefix='_GARBAGE')'''
+    global_acc = 0.0
+    raw_acc = 0.0
 
     print("\nRaw Accuracy: " + str(raw_acc))
     print("Local Accuracy: " + str(local_accuracy))
     print("Global Accuracy: " + str(global_acc))
     print("\nWriting results to file...")
-    if is_pruned:
-        with open(model_path + 'pruned_model_accuracy.txt', 'w') as f:
-            f.write('Machine: pitagyro\n')
-            f.write(model_path + '\n')
-            f.write('Local Accuracy: %f\n' % local_accuracy)
-            f.write('Global Accuracy: %f\n' % global_acc)
-            f.write('Raw Accuracy: %f\n' % raw_acc)
-    else:
-        with open(model_path + 'model_accuracy.txt', 'w') as f:
-            f.write('Machine: pitagyro\n')
-            f.write(model_path + '\n')
-            f.write('Local Accuracy: %f\n' % local_accuracy)
-            f.write('Global Accuracy: %f\n' % global_acc)
-            f.write('Raw Accuracy: %f\n' % raw_acc)
+    with open(model_path + 'model_accuracy.txt', 'w') as f:
+        f.write('Machine: pitagyro\n')
+        f.write(model_path + '\n')
+        f.write('Local Accuracy: %f\n' % local_accuracy)
+        f.write('Global Accuracy: %f\n' % global_acc)
+        f.write('Raw Accuracy: %f\n' % raw_acc)
 
 if __name__ == '__main__':
     main()

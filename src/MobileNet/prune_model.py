@@ -57,7 +57,7 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5
 
 def main():
-    model_path = './L5_25p_v1_in1/'
+    model_path = './L10_25p_v1_in4/'
     '''
         Model options (*note, 'rs' stands for resource-scalable version of model:
         googlenet_rs

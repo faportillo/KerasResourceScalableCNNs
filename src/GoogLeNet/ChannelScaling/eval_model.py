@@ -36,24 +36,26 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5'''
 
 # Pitagyro
-'''IMAGENET_PATH = '/HD1/'
+IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'ILSVRC2012_img_train/'
 VAL_2_PATH = 'Val_2/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5'''
+VALID_TIME_MINUTE = 5
 
 # MC
-IMAGENET_PATH = '/HD1/'
+'''IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'train/'
 VAL_2_PATH = 'val/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5
+VALID_TIME_MINUTE = 5'''
 
 def main():
 
-    model_path = './L20_s3_trial1/'
+    model_path = './L15_s3_trial5/'
+
+    is_pruned = False
 
     # Load ofms list from .txt file
     ofms = []
@@ -62,12 +64,30 @@ def main():
             ofm = line[:-1]
             ofms.append(int(ofm))
 
-    num_classes = ofms[57]  # number of classes
+    num_classes = ofms[-1]  # number of classes
 
     # Create model
     model = rs_net_ch(num_classes=num_classes, ofms=ofms)
-    model.load_weights(model_path + 'weights.hdf5')
-    #model = tu.load_model_npy(model, model_path + 'weights.npy')
+    model = tu.load_model_npy(model, model_path + 'max_l_g_weights.npy')
+    #model = load_model(model_path + 'final_pruned_model.h5')
+    '''model.compile(optimizer='adam', loss=[tu.focal_loss(alpha=.25, gamma=2)],
+                  metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])'''
+    if is_pruned:
+        import src.prune_utils as pu
+        sparsity_val = pu.calculate_sparsity(model)
+        print('\n\nCalculating sparsity... ')
+        print(sparsity_val)
+        print('\n\n')
+        with open(model_path + 'sparsity_pruning_logs.txt', 'a+') as f:
+            f.write('\nFINAL SPARSITY: %f\n' % sparsity_val)
+    # Write pruned model summary to txt file
+    orig_stdout = sys.stdout
+    f = open(model_path + 'model_summary.txt', 'w')
+
+    sys.stdout = f
+    print(model.summary())
+    sys.stdout = orig_stdout
+    f.close()
 
     #Get raw, local, and global accuracy
     local_accuracy = eu.get_local_accuracy(model, IMAGENET_PATH,
@@ -75,18 +95,18 @@ def main():
     global_acc, raw_acc = eu.get_global_accuracy(model, num_classes, IMAGENET_PATH,
                                                  VAL_2_PATH, META_FILE,
                                                  model_path + 'selected_dirs.txt',
-                                                 raw_acc=True)
+                                                 raw_acc=True, symlink_prefix='_GARBAGE')
 
     print("\nRaw Accuracy: " + str(raw_acc))
     print("Local Accuracy: " + str(local_accuracy))
     print("Global Accuracy: " + str(global_acc))
     print("\nWriting results to file...")
     with open(model_path + 'model_accuracy.txt', 'w') as f:
-        f.write('Local Accuracy: %d' % local_accuracy)
-        f.write('Global Accuracy: %d' % global_acc)
-        f.write('Raw Accuracy: %d' % raw_acc)
-    shutil.rmtree('./gclass/')
-    shutil.rmtree('./dummy_train/')
+        f.write('Machine: pitagyro\n')
+        f.write(model_path + '\n')
+        f.write('Local Accuracy: %f\n' % local_accuracy)
+        f.write('Global Accuracy: %f\n' % global_acc)
+        f.write('Raw Accuracy: %f\n' % raw_acc)
 
 if __name__ == '__main__':
     main()

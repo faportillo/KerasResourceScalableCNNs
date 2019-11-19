@@ -1219,6 +1219,7 @@ class SaveWeightsNumpy(Callback):
 
             if self.is_pruning:
                 sparsity_val = self.pu.calculate_sparsity(self.model)
+                print("Current Sparsity: %f" % sparsity_val)
                 with open(self.file_path + 'sparsity_pruning_logs.txt', 'a+') as f:
                     f.write('Epoch: %d\n' % epoch)
                     f.write('Sparsity: %f\n' % sparsity_val)

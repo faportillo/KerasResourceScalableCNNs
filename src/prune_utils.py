@@ -25,11 +25,11 @@ from tensorflow.python.keras.backend import int_shape
 from tensorflow.python.keras.models import Model, save_model, load_model
 from tensorflow.python.keras.optimizers import Adam, RMSprop
 from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.metrics import top_k_categorical_accuracy,categorical_accuracy
+from tensorflow.python.keras.metrics import top_k_categorical_accuracy, categorical_accuracy
 from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint, \
     Callback, LearningRateScheduler, TerminateOnNaN, EarlyStopping
 
-#import tensorflow_model_optimization as tfmot
+# import tensorflow_model_optimization as tfmot
 from tensorflow_model_optimization.sparsity import keras as sparsity
 
 '''
@@ -58,12 +58,12 @@ def remove_channels(model, layer, channel_list):
 
     return model
 
-def prune_by_std(model, s=0.25):
 
+def prune_by_std(model, s=0.25):
     total_pruned_weights = 0
     layer_num = 0
     for layer in model.layers:
-        if ('Conv2D' in layer.__class__.__name__ or 'Dense' in layer.__class__.__name__)\
+        if ('Conv2D' in layer.__class__.__name__ or 'Dense' in layer.__class__.__name__) \
                 and 'aux' not in layer.name:
             print(layer.__class__.__name__)
             layer_weights = model.layers[layer_num].get_weights()[0]
@@ -77,9 +77,10 @@ def prune_by_std(model, s=0.25):
             total_pruned_weights += np.count_nonzero(weights_mask == 0)
             total_pruned_weights += np.count_nonzero(bias_mask == 0)
 
-        layer_num+=1
+        layer_num += 1
 
     return model, total_pruned_weights
+
 
 def prune_model(model, model_type='googlenet_rs',
                 num_classes=1000,
@@ -106,7 +107,6 @@ def prune_model(model, model_type='googlenet_rs',
                 multi_outputs=False,
                 garbage_multiplier=1,
                 workers=1):
-
     '''
         Prune a resource-scalable model using magnitude-based weight pruning
 
@@ -131,7 +131,7 @@ def prune_model(model, model_type='googlenet_rs',
     train_img_path = orig_train_img_path
     val_img_path = orig_val_img_path
     wnid_labels, _ = tu.load_imagenet_meta(os.path.join(imagenet_path, \
-                                                     meta_path))
+                                                        meta_path))
 
     # copy selected_dirs.txt to current directory if not already in it
     if not path.exists('selected_dirs.txt'):
@@ -149,14 +149,14 @@ def prune_model(model, model_type='googlenet_rs',
         new_training_path = os.path.join(imagenet_path, symlink_prefix + "_TRAIN_")
         new_validation_path = os.path.join(imagenet_path, symlink_prefix + "_VAL_")
         selected_classes = tu.create_garbage_links(num_classes, wnid_labels, train_img_path,
-                                                new_training_path, val_img_path, new_validation_path)
+                                                   new_training_path, val_img_path, new_validation_path)
         tu.create_garbage_class_folder(selected_classes, wnid_labels,
-                                    train_img_path, new_training_path,
-                                    val_img_path, new_validation_path)
+                                       train_img_path, new_training_path,
+                                       val_img_path, new_validation_path)
         train_img_path = new_training_path
         val_img_path = new_validation_path
 
-    tb_callback = TensorBoard(log_dir=tb_logpath)
+    #tb_callback = TensorBoard(log_dir=tb_logpath)
     termNaN_callback = TerminateOnNaN()
 
     ''' 
@@ -164,15 +164,15 @@ def prune_model(model, model_type='googlenet_rs',
         But if the global accuracy continues to drop, then stop pruning
     '''
     early_stop_local = EarlyStopping(monitor='val_local_accuracy',
-                               mode='max',
-                               verbose=1,
-                               patience=stopping_patience,
-                               min_delta=1)
-    early_stop_global = EarlyStopping(monitor='val_global_accuracy',
                                      mode='max',
                                      verbose=1,
-                                     patience=int(stopping_patience/2),
+                                     patience=stopping_patience,
                                      min_delta=1)
+    early_stop_global = EarlyStopping(monitor='val_global_accuracy',
+                                      mode='max',
+                                      verbose=1,
+                                      patience=int(stopping_patience / 2),
+                                      min_delta=1)
     save_weights_std_callback = ModelCheckpoint(model_path + 'best_pruned_global_weights.hdf5',
                                                 monitor='val_local_accuracy',
                                                 verbose=1,
@@ -181,20 +181,20 @@ def prune_model(model, model_type='googlenet_rs',
                                                 mode='max',
                                                 period=val_period)
     save_weights_callback = tu.SaveWeightsNumpy(num_classes,
-                                             model, model_path,
-                                             period=val_period,
-                                             selected_classes=selected_classes,
-                                             wnid_labels=wnid_labels,
-                                             orig_train_img_path=orig_train_img_path,
-                                             new_training_path=new_training_path,
-                                             orig_val_img_path=orig_val_img_path,
-                                             new_val_path=val_img_path,
-                                             weight_filename='pruned_weights.h5',
-                                             best_l_g_filename='pruned_max_l_g_weights.h5',
-                                             best_loc_filename='pruned_loc_weights.h5',
-                                             multi_outputs=multi_outputs,
-                                             is_pruning=True)
-    callbacks = [tb_callback, termNaN_callback,
+                                                model, model_path,
+                                                period=val_period,
+                                                selected_classes=selected_classes,
+                                                wnid_labels=wnid_labels,
+                                                orig_train_img_path=orig_train_img_path,
+                                                new_training_path=new_training_path,
+                                                orig_val_img_path=orig_val_img_path,
+                                                new_val_path=val_img_path,
+                                                weight_filename='pruned_weights.h5',
+                                                best_l_g_filename='pruned_max_l_g_weights.h5',
+                                                best_loc_filename='pruned_loc_weights.h5',
+                                                multi_outputs=multi_outputs,
+                                                is_pruning=True)
+    callbacks = [termNaN_callback,
                  sparsity.UpdatePruningStep(),
                  sparsity.PruningSummaries(log_dir=tb_logpath),
                  early_stop_local, early_stop_global, save_weights_callback, save_weights_std_callback]
@@ -208,7 +208,7 @@ def prune_model(model, model_type='googlenet_rs',
                                               decay_params[1], decay_params[2])
         callback_list.append(lr_decay_callback)
     elif op_type == 'adam':
-        print ('Optimizer: Adam')
+        print('Optimizer: Adam')
     elif op_type == 'sgd':
         print('Optimizer: SGD')
         one_cycle = OneCycle(clrcm_params[0], clrcm_params[1], clrcm_params[2],
@@ -219,7 +219,7 @@ def prune_model(model, model_type='googlenet_rs',
         exit()
 
     # Make end step one epoch less so it gives model one last epoch to finetune better
-    end_step = np.ceil(1.0 * ((num_classes-1) * 1300)+(1300*garbage_multiplier)
+    end_step = np.ceil(1.0 * ((num_classes - 1) * 1300) + (1300 * garbage_multiplier)
                        / batch_size).astype(np.int32) * (num_epochs - 1)
     orig_stdout = sys.stdout
     f = open(model_path + 'orig_model_summary.txt', 'w')
@@ -246,7 +246,7 @@ def prune_model(model, model_type='googlenet_rs',
 
     pruned_model = sparsity.prune_low_magnitude(model, **new_pruning_params)
     print("Compiling model")
-    if model_type == 'googlenet_rs': #resource-scalable googlenet
+    if model_type == 'googlenet_rs':  # resource-scalable googlenet
 
         if multi_outputs:
             if loss_type == 'focal':
@@ -257,12 +257,12 @@ def prune_model(model, model_type='googlenet_rs',
                 loss2 = tu.dual_loss(alpha=.25, gamma=2)
 
             train_data, val_data = tu.imagenet_generator_multi(train_img_path,
-                                                            val_img_path, batch_size=batch_size,
-                                                            do_augment=augment, image_size=image_size)
+                                                               val_img_path, batch_size=batch_size,
+                                                               do_augment=augment, image_size=image_size)
 
             pruned_model.compile(optimizer=op_type, loss=[loss1, loss2],
-                          metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy],
-                          loss_weights=[1.0, 0.3])
+                                 metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy],
+                                 loss_weights=[1.0, 0.3])
         else:
             if loss_type == 'focal':
                 loss = tu.focal_loss(alpha=.25, gamma=2)
@@ -270,9 +270,9 @@ def prune_model(model, model_type='googlenet_rs',
                 loss = tu.dual_loss(alpha=.25, gamma=2)
 
             train_data, val_data = tu.imagenet_generator(train_img_path,
-                                                               val_img_path,
-                                                               batch_size=batch_size,
-                                                               do_augment=augment, image_size=image_size)
+                                                         val_img_path,
+                                                         batch_size=batch_size,
+                                                         do_augment=augment, image_size=image_size)
             pruned_model.compile(optimizer=op_type, loss=[loss],
                                  metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])
 
@@ -289,35 +289,37 @@ def prune_model(model, model_type='googlenet_rs',
         pruned_model.compile(optimizer=op_type, loss=[loss],
                              metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])
 
-    elif model_type == 'googlenet': #Vanilla googlenet for 1000 classes
+    elif model_type == 'googlenet':  # Vanilla googlenet for 1000 classes
         pruned_model.compile(optimizer=op_type,
-                      loss='categorical_crossentropy',
-                      metrics=['accuracy'])
+                             loss='categorical_crossentropy',
+                             metrics=['accuracy'])
 
         train_data, val_data = tu.imagenet_generator(train_img_path,
-                                                        val_img_path, batch_size=batch_size,
-                                                        do_augment=augment)
+                                                     val_img_path, batch_size=batch_size,
+                                                     do_augment=augment)
     else:
         pruned_model.compile(optimizer=op_type,
                              loss='categorical_crossentropy',
                              metrics=['accuracy'])
 
         train_data, val_data = tu.imagenet_generator(train_img_path,
-                                                        val_img_path, batch_size=batch_size,
-                                                        do_augment=augment)
+                                                     val_img_path, batch_size=batch_size,
+                                                     do_augment=augment)
     print("Pruning model")
     if multi_outputs:
         use_multiproc = True
     else:
         use_multiproc = False
     pruned_model.fit_generator(train_data, epochs=num_epochs,
-                        steps_per_epoch=int(((num_classes-1) * 1300)+(1300*garbage_multiplier)) / batch_size,
-                        validation_data=val_data,
-                        validation_steps=int(50000 / val_batch_size),
-                        verbose=1, callbacks=callbacks, workers=workers,
-                        use_multiprocessing=use_multiproc)
+                               steps_per_epoch=int(
+                                   ((num_classes - 1) * 1300) + (1300 * garbage_multiplier)) / batch_size,
+                               validation_data=val_data,
+                               validation_steps=int(50000 / val_batch_size),
+                               verbose=1, callbacks=callbacks, workers=workers,
+                               use_multiprocessing=use_multiproc)
 
     return pruned_model
+
 
 def calculate_sparsity(model):
     total_params = 0.0
@@ -328,12 +330,14 @@ def calculate_sparsity(model):
             print(layer.__class__.__name__)
             # Get weights/biases and ensure there are no nan values
             weights = np.nan_to_num(layer.get_weights()[0])
-            #bias = np.nan_to_num(layer.get_weights()[1])
+            # bias = np.nan_to_num(layer.get_weights()[1])
             # Count total parameters and total non-zero parameters
-            total_params += float(weights.size)# + bias.size)
-            non_zero_params += float(np.count_nonzero(weights))# + np.count_nonzero(bias))
+            total_params += float(weights.size)  # + bias.size)
+            non_zero_params += float(np.count_nonzero(weights))  # + np.count_nonzero(bias))
         else:
             continue
+    print("Total Parameters: %f" % total_params)
+    print("Total Non-Zero Params: %f" % non_zero_params)
 
     with np.errstate(divide='ignore', invalid='ignore'):
         total_sparsity = 1.0 - np.true_divide(non_zero_params, total_params)

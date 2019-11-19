@@ -109,7 +109,7 @@ def main():
     pruned_model = pu.prune_model(model,
                                   num_classes=num_classes,
                                   batch_size=32,
-                                  initial_sparsity=0.0,
+                                  initial_sparsity=0.50,
                                   final_sparsity=0.90,
                                   prune_frequency=1,
                                   stopping_patience=4,
@@ -120,10 +120,9 @@ def main():
                                   val_path=VAL_2_PATH,
                                   meta_path=META_FILE,
                                   tb_logpath=model_path+"prune_logs",
-                                  num_epochs=1,
+                                  num_epochs=12,
                                   garbage_multiplier=8,
                                   workers=6)
-
 
     # Load model with best local and global accuracy if file exists
     # Else just use returned model from last pruning iteration
@@ -161,7 +160,7 @@ def main():
 
     # Calculate sparsity
     sparsity_val = pu.calculate_sparsity(final_model)
-    with open(self.file_path + 'sparsity_pruning_logs.txt', 'a+') as f:
+    with open(model_path + 'sparsity_pruning_logs.txt', 'a+') as f:
         f.write('\nFINAL SPARSITY: %f\n' % sparsity_val)
 
     # Write pruned model summary to txt file

@@ -11,6 +11,7 @@ import math
 import time
 from PIL import Image
 import random
+import json
 from tensorflow.python.keras.layers import Input, Dense, Convolution2D, \
     MaxPooling2D, AveragePooling2D, ZeroPadding2D, Dropout, Flatten, Reshape, \
     Activation, Concatenate, Layer, Lambda, BatchNormalization
@@ -21,8 +22,12 @@ from tensorflow.python.keras.metrics import top_k_categorical_accuracy,categoric
 from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint, LearningRateScheduler
 from tensorflow.python.keras.utils import multi_gpu_model
 from tensorflow.python.keras import backend as K
+from tensorflow.python.keras.utils.data_utils import get_file
 
 from scipy.io import loadmat
+
+CLASS_INDEX = None
+CLASS_INDEX_PATH = 'https://s3.amazonaws.com/deep-learning-models/image-models/imagenet_class_index.json'
 
 '''
     Both functions:
@@ -31,7 +36,21 @@ from scipy.io import loadmat
     iterate through entire dataset one-by-one to find their respective metrics
     
 '''
-def get_local_accuracy(model, imagnenet_path, val_path, selected_dirs_file):
+def get_local_accuracy(model,
+                       imagnenet_path,
+                       val_path,
+                       selected_dirs_file,
+                       image_size=227,
+                       is_rs_model=True):
+
+    # Open file for reading the wnid_classes into a dict
+    # Used when evaluating local accuracy for a full 1000-class model.
+    if is_rs_model is False:
+        fpath = get_file('imagenet_class_index.json',
+                         CLASS_INDEX_PATH,
+                         cache_subdir='models')
+        wnid_dict = json.load(open(fpath))
+
     selected_dirs = []
     selected_dirs.append('')
     f = open(selected_dirs_file, 'r')
@@ -48,9 +67,14 @@ def get_local_accuracy(model, imagnenet_path, val_path, selected_dirs_file):
     total_imgs = 0
     correct_imgs = 0
     for folder in all_dirs:
+        # print(folder)
         correct_index = 0
+
         if folder in selected_dirs:
-            correct_index = selected_dirs.index(folder)
+            if is_rs_model:
+                correct_index = selected_dirs.index(folder)
+            else:
+                correct_index = int(get_key(folder, wnid_dict))#wnid_list.index(folder) + 1
         else:
             continue
 
@@ -59,14 +83,14 @@ def get_local_accuracy(model, imagnenet_path, val_path, selected_dirs_file):
         for elem in all_imgs:
             file_name = os.path.join(p, elem)
             img = Image.open(file_name)
-            img = img.resize((227, 227))
+            img = img.resize((image_size, image_size))
             img = np.array(img)
             img = img / 255.0
             if (len(img.shape) != 3) or (img.shape[0] * img.shape[1] * img.shape[2] !=
-                                         (227 * 227 * 3)):
+                                         (image_size * image_size * 3)):
                 # print ("Wrong format skipped")
                 continue
-            img = img.reshape(1, 227, 227, 3)
+            img = img.reshape(1, image_size, image_size, 3)
             pred = model.predict(img)
             total_imgs += 1
             if np.argmax(pred[0]) == correct_index:
@@ -236,4 +260,31 @@ def get_global_accuracy(model, num_classes, imagnenet_path, val_path, meta_file,
         return global_acc, raw_acc
     else:
         return global_acc
+
+def decode_predictions(preds, top=1):
+    global CLASS_INDEX
+    if len(preds.shape) != 2 or preds.shape[1] != 1000:
+        raise ValueError('`decode_predictions` expects '
+                         'a batch of predictions '
+                         '(i.e. a 2D array of shape (samples, 1000)). '
+                         'Found array with shape: ' + str(preds.shape))
+    if CLASS_INDEX is None:
+        fpath = get_file('imagenet_class_index.json',
+                         CLASS_INDEX_PATH,
+                         cache_subdir='models')
+        CLASS_INDEX = json.load(open(fpath))
+    results = []
+    for pred in preds:
+        top_indices = pred.argsort()[-top:][::-1]
+        result = [tuple(CLASS_INDEX[str(i)]) + (pred[i],) for i in top_indices]
+        results.append(result)
+    return results
+
+
+def get_key(val, in_dict):
+    for key, value in in_dict.items():
+        if val in value:
+            return key
+
+    return "key doesn't exist"
 

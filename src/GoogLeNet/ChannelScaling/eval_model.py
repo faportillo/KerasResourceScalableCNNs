@@ -13,6 +13,8 @@ import os
 import os.path as path
 p = path.abspath(path.join(__file__, "../../../.."))
 sys.path.append(p)
+p = path.abspath(path.join(__file__, "../../.."))
+sys.path.append(p)
 import src.train_utils as tu
 import src.eval_utils as eu
 from rs_net_ch import rs_net_ch
@@ -53,9 +55,9 @@ VALID_TIME_MINUTE = 5'''
 
 def main():
 
-    model_path = './L15_s3_trial5/'
+    model_path = './L15_s3_trial4/'
 
-    is_pruned = False
+    is_pruned = True
 
     # Load ofms list from .txt file
     ofms = []
@@ -68,8 +70,8 @@ def main():
 
     # Create model
     model = rs_net_ch(num_classes=num_classes, ofms=ofms)
-    model = tu.load_model_npy(model, model_path + 'max_l_g_weights.npy')
-    #model = load_model(model_path + 'final_pruned_model.h5')
+    #model = tu.load_model_npy(model, model_path + 'max_l_g_weights.npy')
+    model = load_model(model_path + 'pruned_max_l_g_weights.h5')
     '''model.compile(optimizer='adam', loss=[tu.focal_loss(alpha=.25, gamma=2)],
                   metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])'''
     if is_pruned:
@@ -101,12 +103,20 @@ def main():
     print("Local Accuracy: " + str(local_accuracy))
     print("Global Accuracy: " + str(global_acc))
     print("\nWriting results to file...")
-    with open(model_path + 'model_accuracy.txt', 'w') as f:
-        f.write('Machine: pitagyro\n')
-        f.write(model_path + '\n')
-        f.write('Local Accuracy: %f\n' % local_accuracy)
-        f.write('Global Accuracy: %f\n' % global_acc)
-        f.write('Raw Accuracy: %f\n' % raw_acc)
+    if is_pruned:
+        with open(model_path + 'pruned_model_accuracy.txt', 'w') as f:
+            f.write('Machine: pitagyro\n')
+            f.write(model_path + '\n')
+            f.write('Local Accuracy: %f\n' % local_accuracy)
+            f.write('Global Accuracy: %f\n' % global_acc)
+            f.write('Raw Accuracy: %f\n' % raw_acc)
+    else:
+        with open(model_path + 'model_accuracy.txt', 'w') as f:
+            f.write('Machine: pitagyro\n')
+            f.write(model_path + '\n')
+            f.write('Local Accuracy: %f\n' % local_accuracy)
+            f.write('Global Accuracy: %f\n' % global_acc)
+            f.write('Raw Accuracy: %f\n' % raw_acc)
 
 if __name__ == '__main__':
     main()

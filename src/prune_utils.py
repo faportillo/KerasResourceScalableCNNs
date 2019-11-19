@@ -163,18 +163,24 @@ def prune_model(model, model_type='googlenet_rs',
         Want to give more leeway for stopping if the local accuracy drops
         But if the global accuracy continues to drop, then stop pruning
     '''
-    early_stop_local = EarlyStopping(monitor='val_local_accuracy',
+    if multi_outputs:
+        local_mntr = 'val_prune_low_magnitude_prob_main_local_accuracy'
+        global_mntr = 'val_prune_low_magnitude_prob_main_global_accuracy'
+    else:
+        local_mntr = 'val_local_accuracy'
+        global_mntr = 'val_global_accuracy'
+    early_stop_local = EarlyStopping(monitor=local_mntr,
                                      mode='max',
                                      verbose=1,
                                      patience=stopping_patience,
                                      min_delta=1)
-    early_stop_global = EarlyStopping(monitor='val_global_accuracy',
+    early_stop_global = EarlyStopping(monitor=global_mntr,
                                       mode='max',
                                       verbose=1,
                                       patience=int(stopping_patience / 2),
                                       min_delta=1)
-    save_weights_std_callback = ModelCheckpoint(model_path + 'best_pruned_global_weights.hdf5',
-                                                monitor='val_local_accuracy',
+    save_weights_std_callback = ModelCheckpoint(model_path + 'best_pruned_local_weights.hdf5',
+                                                monitor=local_mntr,
                                                 verbose=1,
                                                 save_best_only=True,
                                                 save_weights_only=False,

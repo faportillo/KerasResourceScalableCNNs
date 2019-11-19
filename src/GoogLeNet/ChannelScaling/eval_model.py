@@ -36,24 +36,24 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5'''
 
 # Pitagyro
-IMAGENET_PATH = '/HD1/'
+'''IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'ILSVRC2012_img_train/'
 VAL_2_PATH = 'Val_2/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5
+VALID_TIME_MINUTE = 5'''
 
 # MC
-'''IMAGENET_PATH = '/HD1/'
+IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'train/'
 VAL_2_PATH = 'val/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5'''
+VALID_TIME_MINUTE = 5
 
 def main():
 
-    model_path = './L15_s3_trial5/'
+    model_path = './L20_s3_045/'
 
     is_pruned = False
 
@@ -67,7 +67,7 @@ def main():
     num_classes = ofms[-1]  # number of classes
 
     # Create model
-    model = rs_net_ch(num_classes=num_classes, ofms=ofms)
+    model = rs_net_ch(num_classes=num_classes, ofms=ofms, use_aux=False)
     model = tu.load_model_npy(model, model_path + 'max_l_g_weights.npy')
     #model = load_model(model_path + 'final_pruned_model.h5')
     '''model.compile(optimizer='adam', loss=[tu.focal_loss(alpha=.25, gamma=2)],
@@ -95,7 +95,7 @@ def main():
     global_acc, raw_acc = eu.get_global_accuracy(model, num_classes, IMAGENET_PATH,
                                                  VAL_2_PATH, META_FILE,
                                                  model_path + 'selected_dirs.txt',
-                                                 raw_acc=True, symlink_prefix='_GARBAGE')
+                                                 raw_acc=True, symlink_prefix='1GARBAGE')
 
     print("\nRaw Accuracy: " + str(raw_acc))
     print("Local Accuracy: " + str(local_accuracy))

@@ -41,23 +41,23 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5'''
 
 # Pitagyro
-IMAGENET_PATH = '/HD1/'
+'''IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'ILSVRC2012_img_train/'
 VAL_2_PATH = 'Val_2/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5
+VALID_TIME_MINUTE = 5'''
 
 # MC
-'''IMAGENET_PATH = '/HD1/'
+IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'train/'
 VAL_2_PATH = 'val/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5'''
+VALID_TIME_MINUTE = 5
 
 def main():
-    model_path = './L15_25p_v1/'
+    model_path = './L5_25p_v1_in1/'
     '''
         Model options (*note, 'rs' stands for resource-scalable version of model:
         googlenet_rs
@@ -66,7 +66,8 @@ def main():
         mobilenet
     '''
     model_type = 'mobilenet_rs'
-    machine_name = 'pitagyro'
+    machine_name = 'Instance1'
+    symlnk_prfx = '1GARBAGE'
 
     do_orig_eval = False
 
@@ -94,7 +95,8 @@ def main():
         global_acc, raw_acc = eu.get_global_accuracy(model, num_classes, IMAGENET_PATH,
                                                      VAL_2_PATH, META_FILE,
                                                      model_path + 'selected_dirs.txt',
-                                                     raw_acc=True)
+                                                     raw_acc=True,
+                                                     symlink_prefix=symlnk_prfx)
         print("\nRaw Accuracy: " + str(raw_acc))
         print("Local Accuracy: " + str(local_accuracy))
         print("Global Accuracy: " + str(global_acc))
@@ -120,9 +122,10 @@ def main():
                                   val_path=VAL_2_PATH,
                                   meta_path=META_FILE,
                                   tb_logpath=model_path+"prune_logs",
+                                  symlink_prefix=symlnk_prfx,
                                   num_epochs=12,
                                   garbage_multiplier=8,
-                                  workers=6)
+                                  workers=4)
 
     # Load model with best local and global accuracy if file exists
     # Else just use returned model from last pruning iteration
@@ -145,7 +148,8 @@ def main():
                                                  VAL_2_PATH,
                                                  META_FILE,
                                                  model_path + 'selected_dirs.txt',
-                                                 raw_acc=True)
+                                                 raw_acc=True,
+                                                 symlink_prefix=symlnk_prfx)
 
     print("\nRaw Accuracy: " + str(raw_acc))
     print("Local Accuracy: " + str(local_accuracy))

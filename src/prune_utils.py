@@ -90,6 +90,8 @@ def prune_model(model, model_type='googlenet_rs',
                 image_size=227,
                 initial_sparsity=0.0,
                 final_sparsity=0.5,
+                begin_step=0.0,
+                end_step=None,
                 prune_frequency=1,
                 loss_type='focal',
                 op_type='adam',
@@ -225,8 +227,9 @@ def prune_model(model, model_type='googlenet_rs',
         exit()
 
     # Make end step one epoch less so it gives model one last epoch to finetune better
-    end_step = np.ceil(1.0 * ((num_classes - 1) * 1300) + (1300 * garbage_multiplier)
-                       / batch_size).astype(np.int32) * (num_epochs - 1)
+    if end_step is None:
+        end_step = np.ceil(1.0 * ((num_classes - 1) * 1300) + (1300 * garbage_multiplier)
+                           / batch_size).astype(np.int32) * (num_epochs)
     orig_stdout = sys.stdout
     f = open(model_path + 'orig_model_summary.txt', 'w')
     sys.stdout = f
@@ -237,13 +240,13 @@ def prune_model(model, model_type='googlenet_rs',
     if schedule == 'polynomial':
         new_pruning_params = {'pruning_schedule': sparsity.PolynomialDecay(initial_sparsity=initial_sparsity,
                                                                            final_sparsity=final_sparsity,
-                                                                           begin_step=0,
+                                                                           begin_step=begin_step,
                                                                            end_step=end_step,
                                                                            frequency=prune_frequency)}
     elif schedule == 'constant':
         new_pruning_params = {'pruning_schedule': sparsity.ConstantSparsity(initial_sparsity=initial_sparsity,
                                                                             final_sparsity=final_sparsity,
-                                                                            begin_step=0,
+                                                                            begin_step=begin_step,
                                                                             end_step=end_step,
                                                                             frequency=prune_frequency)}
     else:

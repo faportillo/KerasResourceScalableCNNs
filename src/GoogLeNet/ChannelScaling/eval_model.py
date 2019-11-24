@@ -55,9 +55,9 @@ VALID_TIME_MINUTE = 5
 
 def main():
 
-    model_path = './L20_s3_trial2_pg/'
-    machine_name = 'Instance1'
-    symlnk_prfx = '1GARBAGE'
+    model_path = './L15_s3_trial4_pg/'
+    machine_name = 'Instance4'
+    symlnk_prfx = '4GARBAGE'
     multi_outs = False
     is_pruned = True
 

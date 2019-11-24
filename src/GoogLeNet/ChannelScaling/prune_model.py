@@ -65,10 +65,13 @@ def main():
         googlenet
         mobilenet
     '''
-    model_type = 'googlenet_rs'
-    machine_name = 'Instance1'
-    symlnk_prfx = '1GARBAGE'
+    model_path = './L15_s3_trial4_pg/'
+    machine_name = 'Instance4'
+    symlnk_prfx = '4GARBAGE'
     multi_outs = False
+    batch_size=64
+    num_epochs=48
+    garbage_multiplier=9
 
     do_orig_eval = False
 
@@ -111,9 +114,12 @@ def main():
 
     pruned_model = pu.prune_model(model,
                                   num_classes=num_classes,
-                                  batch_size=64,
+                                  batch_size=batch_size,
                                   initial_sparsity=0.10,
                                   final_sparsity=0.20,
+                                  end_step = np.ceil(1.0 * ((num_classes - 1) 
+                                    * 1300) + (1300 * garbage_multiplier)
+                                    / batch_size).astype(np.int32) * (num_epochs-8),
                                   prune_frequency=200,
                                   stopping_patience=4,
                                   schedule='polynomial',
@@ -125,8 +131,8 @@ def main():
                                   tb_logpath=model_path+"prune_logs",
                                   symlink_prefix=symlnk_prfx,
                                   multi_outputs=multi_outs,
-                                  num_epochs=48,
-                                  garbage_multiplier=9,
+                                  num_epochs=num_epochs,
+                                  garbage_multiplier=garbage_multiplier,
                                   workers=4)
 
     # Load model with best local and global accuracy if file exists

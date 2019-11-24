@@ -582,9 +582,9 @@ def fit_model(model, num_classes, first_class, last_class, batch_size,
 
     # Fit and validate model based on generators
     if multi_outputs:
-        use_multiproc = True
-    else:
         use_multiproc = False
+    else:
+        use_multiproc = True
 
     model.fit_generator(train_data,
                         epochs=num_epochs,

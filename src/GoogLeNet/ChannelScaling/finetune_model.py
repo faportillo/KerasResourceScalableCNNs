@@ -54,7 +54,7 @@ VALID_TIME_MINUTE = 5
 
 def main():
 
-    model_path = './L20_s3_trial2_pg/'
+    model_path = './L15_s3_trial4_pg/'
 
     is_pruned = True
     first_class = 0
@@ -63,12 +63,14 @@ def main():
     b_size = 64  # Batch size
     val_b_size = 64
     validation_period = 10
+    learning_rate = 0.0001
     augment_data = True  # Augment data or not
     load_weights = False
     use_tfrecord_format = False
-    use_aux = False
+    use_aux = True
+    num_outs=2
     format = 'generator'
-    symlnk_prfx = '1GARBAGE'
+    symlnk_prfx = '4GARBAGE'
 
     # Load ofms list from .txt file
     ofms = []
@@ -84,6 +86,7 @@ def main():
     
     if is_pruned:
         import src.prune_utils as pu
+        model = load_model(model_path + 'pruned_max_l_g_weights.h5')
         sparsity_val = pu.calculate_sparsity(model)
         print('\n\nCalculating sparsity... ')
         print(sparsity_val)
@@ -91,7 +94,6 @@ def main():
         with open(model_path + 'sparsity_pruning_logs.txt', 'a+') as f:
             f.write('\nFINAL SPARSITY: %f\n' % sparsity_val)
         
-        model = load_model(model_path + 'pruned_max_l_g_weights.h5')
     else:
         model = tu.load_model_npy(model, model_path + 'max_l_g_weights.npy')
     # Write pruned model summary to txt file
@@ -104,7 +106,7 @@ def main():
     f.close()
     
 
-    adam = Adam(lr=0.00005)
+    adam = Adam(lr=learning_rate)
     # model.compile(optimizer=adam, loss=[focal_loss(alpha=.25, gamma=2),
     # focal_loss(alpha=.25, gamma=2)], metrics=[categorical_accuracy],loss_weights=[1.0,0.3])
     if use_aux:
@@ -137,7 +139,8 @@ def main():
                                  num_epochs=num_epochs,
                                  augment=augment_data,
                                  garbage_multiplier=8,
-                                 workers=6,
+                                 num_outs=num_outs,
+                                 workers=4,
                                  finetuning=True)
 
     shutil.move("selected_dirs.txt", model_path)

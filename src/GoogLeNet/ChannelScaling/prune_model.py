@@ -57,7 +57,7 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5
 
 def main():
-    model_path = './L15_s3_trial3_pg/'
+    model_path = './L15_s3_trial4_pg/'
     '''
         Model options (*note, 'rs' stands for resource-scalable version of model:
         googlenet_rs
@@ -66,8 +66,8 @@ def main():
         mobilenet
     '''
     model_type = 'googlenet_rs'
-    machine_name = 'Instance3'
-    symlnk_prfx = '3GARBAGE'
+    machine_name = 'Instance4'
+    symlnk_prfx = '4GARBAGE'
     multi_outs = False
     batch_size=64
     num_epochs=48

@@ -54,7 +54,7 @@ VALID_TIME_MINUTE = 5
 
 def main():
 
-    model_path = './L15_s3_trial4_pg/'
+    model_path = './L20_s3_trial4_mc1/'
 
     is_pruned = True
     first_class = 0

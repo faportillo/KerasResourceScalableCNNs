@@ -16,7 +16,6 @@ sys.path.append(p)
 p = path.abspath(path.join(__file__, "../../.."))
 sys.path.append(p)
 import src.train_utils as tu
-import src.eval_utils as eu
 from rs_net_ch import rs_net_ch
 
 from tensorflow.python.keras.optimizers import Adam, RMSprop
@@ -58,6 +57,18 @@ def main():
     model_path = './L20_s3_trial2_pg/'
 
     is_pruned = True
+    first_class = 0
+    last_class = 49
+    num_epochs = 200
+    b_size = 64  # Batch size
+    val_b_size = 64
+    validation_period = 10
+    augment_data = True  # Augment data or not
+    load_weights = False
+    use_tfrecord_format = False
+    use_aux = False
+    format = 'generator'
+    symlnk_prfx = '1GARBAGE'
 
     # Load ofms list from .txt file
     ofms = []
@@ -70,10 +81,7 @@ def main():
 
     # Create model
     model = rs_net_ch(num_classes=num_classes, ofms=ofms)
-    #model = tu.load_model_npy(model, model_path + 'max_l_g_weights.npy')
-    model = load_model(model_path + 'pruned_max_l_g_weights.h5')
-    '''model.compile(optimizer='adam', loss=[tu.focal_loss(alpha=.25, gamma=2)],
-                  metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])'''
+    
     if is_pruned:
         import src.prune_utils as pu
         sparsity_val = pu.calculate_sparsity(model)
@@ -82,6 +90,10 @@ def main():
         print('\n\n')
         with open(model_path + 'sparsity_pruning_logs.txt', 'a+') as f:
             f.write('\nFINAL SPARSITY: %f\n' % sparsity_val)
+        
+        model = load_model(model_path + 'pruned_max_l_g_weights.h5')
+    else:
+        model = tu.load_model_npy(model, model_path + 'max_l_g_weights.npy')
     # Write pruned model summary to txt file
     orig_stdout = sys.stdout
     f = open(model_path + 'model_summary.txt', 'w')
@@ -90,33 +102,46 @@ def main():
     print(model.summary())
     sys.stdout = orig_stdout
     f.close()
+    
 
-    #Get raw, local, and global accuracy
-    local_accuracy = eu.get_local_accuracy(model, IMAGENET_PATH,
-                                           VAL_2_PATH, model_path + 'selected_dirs.txt')
-    global_acc, raw_acc = eu.get_global_accuracy(model, num_classes, IMAGENET_PATH,
-                                                 VAL_2_PATH, META_FILE,
-                                                 model_path + 'selected_dirs.txt',
-                                                 raw_acc=True, symlink_prefix='1GARBAGE')
-
-    print("\nRaw Accuracy: " + str(raw_acc))
-    print("Local Accuracy: " + str(local_accuracy))
-    print("Global Accuracy: " + str(global_acc))
-    print("\nWriting results to file...")
-    if is_pruned:
-        with open(model_path + 'pruned_model_accuracy.txt', 'w') as f:
-            f.write('Machine: pitagyro\n')
-            f.write(model_path + '\n')
-            f.write('Local Accuracy: %f\n' % local_accuracy)
-            f.write('Global Accuracy: %f\n' % global_acc)
-            f.write('Raw Accuracy: %f\n' % raw_acc)
+    adam = Adam(lr=0.00005)
+    # model.compile(optimizer=adam, loss=[focal_loss(alpha=.25, gamma=2),
+    # focal_loss(alpha=.25, gamma=2)], metrics=[categorical_accuracy],loss_weights=[1.0,0.3])
+    if use_aux:
+        model.compile(optimizer=adam, loss=[tu.focal_loss(alpha=.25, gamma=1),
+                                            tu.focal_loss(alpha=.25, gamma=1)],
+                      metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy],
+                      loss_weights=[1.0, 0.3])
     else:
-        with open(model_path + 'model_accuracy.txt', 'w') as f:
-            f.write('Machine: pitagyro\n')
-            f.write(model_path + '\n')
-            f.write('Local Accuracy: %f\n' % local_accuracy)
-            f.write('Global Accuracy: %f\n' % global_acc)
-            f.write('Raw Accuracy: %f\n' % raw_acc)
+        model.compile(optimizer=adam, loss=[tu.focal_loss(alpha=.25, gamma=1)],
+                      metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])
+
+
+    # Train model
+    model_ft = tu.fit_model(model,
+                                 num_classes,
+                                 first_class,
+                                 last_class,
+                                 batch_size=b_size,
+                                 val_batch_size=val_b_size,
+                                 val_period=validation_period,
+                                 op_type='adam',
+                                 format=format,
+                                 symlink_prefix=symlnk_prfx,
+                                 model_path=model_path,
+                                 imagenet_path=IMAGENET_PATH,
+                                 train_path=TRAIN_PATH,
+                                 val_path=VAL_2_PATH,
+                                 meta_path=META_FILE,
+                                 tb_logpath=model_path + "/logs",
+                                 num_epochs=num_epochs,
+                                 augment=augment_data,
+                                 garbage_multiplier=8,
+                                 workers=6,
+                                 finetuning=True)
+
+    shutil.move("selected_dirs.txt", model_path)
+
 
 if __name__ == '__main__':
     main()

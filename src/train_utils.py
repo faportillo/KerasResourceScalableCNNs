@@ -6,6 +6,7 @@ import math
 from scipy.io import loadmat
 from PIL import Image
 import argparse, shutil
+from os import path
 
 # from Data_Augmentation import augment
 from tensorflow.python.keras.layers import Input, Dense, Convolution2D, \
@@ -404,7 +405,8 @@ def fit_model(model, num_classes, first_class, last_class, batch_size,
               train_by_branch=False,
               num_outs=1,
               garbage_multiplier=1,
-              workers=1):
+              workers=1,
+              finetuning=False):
     '''
         :param model: Keras model
         :param num_classes:
@@ -428,6 +430,20 @@ def fit_model(model, num_classes, first_class, last_class, batch_size,
         multi_outputs = True
     else:
         multi_outputs = False
+        
+    if finetuning:
+        # copy selected_dirs.txt to current directory if not already in it
+        if not path.exists('selected_dirs.txt'):
+            try:
+                copyfile(model_path + 'selected_dirs.txt', './selected_dirs.txt')
+                print("File copied from %s" % model_path)
+            except IOError as e:
+                print("prune_model: Unable to copy file. %s" % e)
+                exit(1)
+            except:
+                print("prune_model: Unexpected error:", sys.exc_info())
+                exit(1)
+           
 
     '''
         Create dataset and link paths if using ImageDataGenerator for data
@@ -493,8 +509,28 @@ def fit_model(model, num_classes, first_class, last_class, batch_size,
                         ,verbose = 1, save_weights_only = True, period=1)
     '''
     termNaN_callback = TerminateOnNaN()
-    save_weights_std_callback = ModelCheckpoint(model_path+'weights.hdf5',
-                                                monitor='val_categorical_accuracy',
+    
+    if multi_outputs:
+        local_mntr = 'val_prune_low_magnitude_prob_main_local_accuracy'
+        global_mntr = 'val_prune_low_magnitude_prob_main_global_accuracy'
+    else:
+        local_mntr = 'val_local_accuracy'
+        global_mntr = 'val_global_accuracy'
+        
+    if finetuning:
+        mc_weight_filename = 'ft_weights.hdf5'
+        weight_filename='ft_weights.npy'
+        best_l_g_filename='ft_max_l_g_weights.npy'
+        best_loc_filename='ft_loc_weights.npy'
+        
+    else:
+        mc_weight_filename = 'weights.hdf5'
+        weight_filename='weights.npy'
+        best_l_g_filename='max_l_g_weights.npy'
+        best_loc_filename='loc_weights.npy'
+    
+    save_weights_std_callback = ModelCheckpoint(model_path+mc_weight_filename,
+                                                monitor=local_mntr,
                                                 verbose=1,
                                                 save_best_only=True,
                                                 save_weights_only=False,
@@ -537,6 +573,9 @@ def fit_model(model, num_classes, first_class, last_class, batch_size,
                                              orig_train_img_path=orig_train_img_path,
                                              new_training_path=new_training_path,
                                              orig_val_img_path=orig_val_img_path,
+                                             weight_filename=weight_filename,
+                                             best_l_g_filename=best_l_g_filename,
+                                             best_loc_filename=best_loc_filename,
                                              new_val_path=val_img_path,
                                              multi_outputs=multi_outputs)
     callback_list.append(save_weights_callback)

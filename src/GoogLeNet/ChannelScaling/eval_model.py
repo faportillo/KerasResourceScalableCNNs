@@ -56,7 +56,9 @@ VALID_TIME_MINUTE = 5
 def main():
 
     model_path = './L20_s3_trial2_pg/'
-
+    machine_name = 'Instance1'
+    symlnk_prfx = '1GARBAGE'
+    multi_outs = False
     is_pruned = True
 
     # Load ofms list from .txt file
@@ -97,7 +99,7 @@ def main():
     global_acc, raw_acc = eu.get_global_accuracy(model, num_classes, IMAGENET_PATH,
                                                  VAL_2_PATH, META_FILE,
                                                  model_path + 'selected_dirs.txt',
-                                                 raw_acc=True, symlink_prefix='1GARBAGE')
+                                                 raw_acc=True, symlink_prefix=symlnk_prfx)
 
     print("\nRaw Accuracy: " + str(raw_acc))
     print("Local Accuracy: " + str(local_accuracy))
@@ -105,14 +107,14 @@ def main():
     print("\nWriting results to file...")
     if is_pruned:
         with open(model_path + 'pruned_model_accuracy.txt', 'w') as f:
-            f.write('Machine: pitagyro\n')
+            f.write('Machine:' + machine_name +'\n')
             f.write(model_path + '\n')
             f.write('Local Accuracy: %f\n' % local_accuracy)
             f.write('Global Accuracy: %f\n' % global_acc)
             f.write('Raw Accuracy: %f\n' % raw_acc)
     else:
         with open(model_path + 'model_accuracy.txt', 'w') as f:
-            f.write('Machine: pitagyro\n')
+            f.write('Machine:' + machine_name +'\n')
             f.write(model_path + '\n')
             f.write('Local Accuracy: %f\n' % local_accuracy)
             f.write('Global Accuracy: %f\n' % global_acc)

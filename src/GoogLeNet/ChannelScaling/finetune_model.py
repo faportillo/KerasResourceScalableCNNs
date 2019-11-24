@@ -37,24 +37,24 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5'''
 
 # Pitagyro
-'''IMAGENET_PATH = '/HD1/'
+IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'ILSVRC2012_img_train/'
 VAL_2_PATH = 'Val_2/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5'''
+VALID_TIME_MINUTE = 5
 
 # MC
-IMAGENET_PATH = '/HD1/'
+'''IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'train/'
 VAL_2_PATH = 'val/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5
+VALID_TIME_MINUTE = 5'''
 
 def main():
 
-    model_path = './L15_s3_trial4_pg/'
+    model_path = './L20_s3_trial3/'
 
     is_pruned = True
     first_class = 0

@@ -70,7 +70,7 @@ def main():
     use_aux = True
     num_outs=2
     format = 'generator'
-    symlnk_prfx = '4GARBAGE'
+    symlnk_prfx = '2GARBAGE'
 
     # Load ofms list from .txt file
     ofms = []

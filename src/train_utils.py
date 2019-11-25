@@ -7,6 +7,7 @@ from scipy.io import loadmat
 from PIL import Image
 import argparse, shutil
 from os import path
+import threading
 
 # from Data_Augmentation import augment
 from tensorflow.python.keras.layers import Input, Dense, Convolution2D, \
@@ -22,6 +23,8 @@ from tensorflow.python.keras.metrics import top_k_categorical_accuracy, \
 from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint, \
     Callback, LearningRateScheduler, TerminateOnNaN
 from tensorflow.python.ops import clip_ops
+from tensorflow.keras.utils import Sequence
+
 
 # from model_shell import google_csn
 
@@ -213,17 +216,39 @@ def imagenet_generator_multi(train_data_path,
         multi_train_generator = create_multi_generator_3(train_generator)
         multi_validation_generator = create_multi_generator_3(validation_generator)
     return multi_train_generator, multi_validation_generator
+    
+                
+class threadsafe_iter:
+    """Takes an iterator/generator and makes it thread-safe by
+    serializing call to the `next` method of given iterator/generator.
+    """
+    def __init__(self, it):
+        self.it = it
+        self.lock = threading.Lock()
 
-def create_multi_generator(data_generator, batch_size=64):
-    while (True):
-        data_imgs, data_l = next(data_generator)
-        #print(len(data_imgs))
-        yield [data_imgs], [data_l, data_l]
+    def __iter__(self):
+        return self
 
-def create_multi_generator_3(data_generator, batch_size=64):
+    def next(self):
+        with self.lock:
+            return self.it.next()
+
+def threadsafe_generator(f):
+    """A decorator that takes a generator function and makes it thread-safe.
+    """
+    def g(*a, **kw):
+        return threadsafe_iter(f(*a, **kw))
+    return g
+            
+@threadsafe_generator
+def create_multi_generator(data_generator, batch_size=64, num_outputs=2):
     while (True):
+        output_arr = []
         data_imgs, data_l = next(data_generator)
-        yield [data_imgs], [data_l, data_l, data_l]
+        for i in range(num_outputs):
+            output_arr.append(data_l)
+        yield [data_imgs], [data_l, data_l]#output_arr
+
 
 def create_dataset(train_data_path,
                    val_data_path,
@@ -289,14 +314,14 @@ def create_dataset(train_data_path,
     if num_outputs == 1:
         print("")
     elif num_outputs == 2:
-        train_generator = create_multi_generator(train_generator)
-        validation_generator = create_multi_generator(validation_generator)
-    elif num_outputs == 3:
-        train_generator = create_multi_generator_3(train_generator)
-        validation_generator = create_multi_generator_3(validation_generator)
+        train_generator = create_multi_generator(train_generator,
+                                                batch_size=batch_size,
+                                                num_outputs=num_outputs)
+        validation_generator = create_multi_generator(validation_generator,
+                                                batch_size=batch_size,
+                                                num_outputs=num_outputs)
     else:
         raise Exception("Invalid num_outputs type")
-
 
     if format=='generator':
         return train_generator, validation_generator
@@ -596,9 +621,12 @@ def fit_model(model, num_classes, first_class, last_class, batch_size,
                         verbose=1,
                         callbacks=callback_list,
                         workers=workers,
-                        use_multiprocessing=use_multiproc)
+                        use_multiprocessing=False)
 
-    save_model(model, model_path+'rs_model_final.h5')
+    if finetuning:
+        save_model(model, model_path+'rs_model_final_ft.h5')
+    else:
+        save_model(model, model_path+'rs_model_final.h5')
 
     return model
 

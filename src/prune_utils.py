@@ -326,6 +326,8 @@ def prune_model(model, model_type='googlenet_rs',
                                validation_steps=int(50000 / val_batch_size),
                                verbose=1, callbacks=callbacks, workers=workers,
                                use_multiprocessing=use_multiproc)
+    
+    save_model(model, model_path+'pruned_rs_model_final.h5')
 
     return pruned_model
 

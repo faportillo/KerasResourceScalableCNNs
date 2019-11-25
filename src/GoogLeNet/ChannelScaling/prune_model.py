@@ -66,8 +66,8 @@ def main():
         mobilenet
     '''
     model_type = 'googlenet_rs'
-    machine_name = 'Instance4'
-    symlnk_prfx = '4GARBAGE'
+    machine_name = 'Instance2'
+    symlnk_prfx = '2GARBAGE'
     multi_outs = False
     batch_size=64
     num_epochs=48

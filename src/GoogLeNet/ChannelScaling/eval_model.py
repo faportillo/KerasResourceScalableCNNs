@@ -55,11 +55,12 @@ VALID_TIME_MINUTE = 5
 
 def main():
 
-    model_path = './L15_s3_trial4_pg/'
+    model_path = './L20_s3_trial2_pg/'
     machine_name = 'Instance4'
-    symlnk_prfx = '4GARBAGE'
+    symlnk_prfx = '1GARBAGE'
     multi_outs = False
     is_pruned = True
+    is_finetuned = True
 
     # Load ofms list from .txt file
     ofms = []
@@ -71,9 +72,9 @@ def main():
     num_classes = ofms[-1]  # number of classes
 
     # Create model
-    model = rs_net_ch(num_classes=num_classes, ofms=ofms)
-    #model = tu.load_model_npy(model, model_path + 'max_l_g_weights.npy')
-    model = load_model(model_path + 'pruned_max_l_g_weights.h5')
+    model = rs_net_ch(num_classes=num_classes, ofms=ofms, use_aux=multi_outs)
+    model = tu.load_model_npy(model, model_path + 'ft_max_l_g_weights.npy')
+    #model = load_model(model_path + 'pruned_max_l_g_weights.h5')
     '''model.compile(optimizer='adam', loss=[tu.focal_loss(alpha=.25, gamma=2)],
                   metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])'''
     if is_pruned:
@@ -82,8 +83,12 @@ def main():
         print('\n\nCalculating sparsity... ')
         print(sparsity_val)
         print('\n\n')
-        with open(model_path + 'sparsity_pruning_logs.txt', 'a+') as f:
-            f.write('\nFINAL SPARSITY: %f\n' % sparsity_val)
+        if is_finetuned:
+            with open(model_path + 'ft_sparsity_pruning_logs.txt', 'a+') as f:
+                f.write('\nFINAL SPARSITY: %f\n' % sparsity_val)
+        else:
+            with open(model_path + 'sparsity_pruning_logs.txt', 'a+') as f:
+                f.write('\nFINAL SPARSITY: %f\n' % sparsity_val)
     # Write pruned model summary to txt file
     orig_stdout = sys.stdout
     f = open(model_path + 'model_summary.txt', 'w')
@@ -106,19 +111,35 @@ def main():
     print("Global Accuracy: " + str(global_acc))
     print("\nWriting results to file...")
     if is_pruned:
-        with open(model_path + 'pruned_model_accuracy.txt', 'w') as f:
-            f.write('Machine:' + machine_name +'\n')
-            f.write(model_path + '\n')
-            f.write('Local Accuracy: %f\n' % local_accuracy)
-            f.write('Global Accuracy: %f\n' % global_acc)
-            f.write('Raw Accuracy: %f\n' % raw_acc)
+        if is_finetuned:
+            with open(model_path + 'ft_pruned_model_accuracy.txt', 'w') as f:
+                f.write('Machine:' + machine_name +'\n')
+                f.write(model_path + '\n')
+                f.write('Local Accuracy: %f\n' % local_accuracy)
+                f.write('Global Accuracy: %f\n' % global_acc)
+                f.write('Raw Accuracy: %f\n' % raw_acc)
+        else:
+            with open(model_path + 'pruned_model_accuracy.txt', 'w') as f:
+                f.write('Machine:' + machine_name +'\n')
+                f.write(model_path + '\n')
+                f.write('Local Accuracy: %f\n' % local_accuracy)
+                f.write('Global Accuracy: %f\n' % global_acc)
+                f.write('Raw Accuracy: %f\n' % raw_acc)
     else:
-        with open(model_path + 'model_accuracy.txt', 'w') as f:
-            f.write('Machine:' + machine_name +'\n')
-            f.write(model_path + '\n')
-            f.write('Local Accuracy: %f\n' % local_accuracy)
-            f.write('Global Accuracy: %f\n' % global_acc)
-            f.write('Raw Accuracy: %f\n' % raw_acc)
+        if is_finetuned:
+            with open(model_path + 'ft_model_accuracy.txt', 'w') as f:
+                f.write('Machine:' + machine_name +'\n')
+                f.write(model_path + '\n')
+                f.write('Local Accuracy: %f\n' % local_accuracy)
+                f.write('Global Accuracy: %f\n' % global_acc)
+                f.write('Raw Accuracy: %f\n' % raw_acc)
+        else:
+            with open(model_path + 'model_accuracy.txt', 'w') as f:
+                f.write('Machine:' + machine_name +'\n')
+                f.write(model_path + '\n')
+                f.write('Local Accuracy: %f\n' % local_accuracy)
+                f.write('Global Accuracy: %f\n' % global_acc)
+                f.write('Raw Accuracy: %f\n' % raw_acc)
 
 if __name__ == '__main__':
     main()

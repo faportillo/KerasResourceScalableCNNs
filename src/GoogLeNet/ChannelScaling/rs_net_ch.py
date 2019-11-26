@@ -42,7 +42,7 @@ def LRN(x):
 '''
     Define GoogLeNet Model
 '''
-def rs_net_ch(num_classes, ofms, use_aux=True):
+def rs_net_ch(num_classes, ofms, use_aux=True, remove_aux=False):
     assert len(ofms) == 58, "Number of ofms doesn't match model structure for GoogLeNet"
     '''
         X : input
@@ -414,7 +414,14 @@ def rs_net_ch(num_classes, ofms, use_aux=True):
 
     print("OUTPUT: " + str(int_shape(main_classifier_act)))
     if use_aux:
-        googlenet = Model(inputs=input, outputs=[main_classifier_act,aux_classifier_act])
+        print("\n\nUsing AUX\n\n")
+        if remove_aux: 
+            print("\n\nREMOVING AUX\n\n")
+            # Used to make finetuning and pruning faster,
+            # aux not necessary for small channel resource-scalable models
+            googlenet = Model(inputs=input, outputs=[main_classifier_act])
+        else:
+            googlenet = Model(inputs=input, outputs=[main_classifier_act,aux_classifier_act])
     else:
         googlenet = Model(inputs=input, outputs=[main_classifier_act])
 

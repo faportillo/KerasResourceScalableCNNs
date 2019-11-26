@@ -338,7 +338,6 @@ def calculate_sparsity(model):
     for layer in model.layers:
         if ('Conv2D' in layer.__class__.__name__ or 'Dense' in layer.__class__.__name__) \
                 and 'aux' not in layer.name:
-            print(layer.__class__.__name__)
             # Get weights/biases and ensure there are no nan values
             weights = np.nan_to_num(layer.get_weights()[0])
             # bias = np.nan_to_num(layer.get_weights()[1])

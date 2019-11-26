@@ -54,7 +54,7 @@ VALID_TIME_MINUTE = 5
 
 def main():
 
-    model_path = './L20_s3_trial3/'
+    model_path = './L20_s3_trial4_mc1/'
 
     is_pruned = True
     first_class = 0
@@ -68,7 +68,8 @@ def main():
     load_weights = False
     use_tfrecord_format = False
     use_aux = True
-    num_outs=2
+    remove_aux = True
+    num_outs=1
     format = 'generator'
     symlnk_prfx = '2GARBAGE'
 
@@ -80,9 +81,18 @@ def main():
             ofms.append(int(ofm))
 
     num_classes = ofms[-1]  # number of classes
-
-    # Create model
-    model = rs_net_ch(num_classes=num_classes, ofms=ofms)
+    
+    # ToDo: Check to see if model has multiple outputs, set to one output
+    
+    # Boolean logic guarantees, to prevent crashes or unexpected behavior
+    if use_aux and num_outs < 2:
+        if remove_aux is False:
+            print("Error: remove_aux can't be false if use_aux is True and num_outs < 2...")
+            exit(1)
+    if use_aux and remove_aux:
+        if num_outs != 1:
+            print("Error: num_outs has to equal 1 if use_aux and remove_aux are True...")
+            exit(1)
     
     if is_pruned:
         import src.prune_utils as pu
@@ -93,8 +103,20 @@ def main():
         print('\n\n')
         with open(model_path + 'sparsity_pruning_logs.txt', 'a+') as f:
             f.write('\nFINAL SPARSITY: %f\n' % sparsity_val)
-        
+        if remove_aux:
+            # Need to load in model to remove second aux output
+            weights = model.get_weights()
+            np.save(model_path + 'pruned_max_l_g_weights.npy', weights, fix_imports=True)
+            # Create model
+            pre_model = rs_net_ch(num_classes=num_classes, ofms=ofms,
+                                use_aux=use_aux)
+            pre_model = tu.load_model_npy(pre_model, model_path + 'pruned_max_l_g_weights.npy')
+            model = Model(inputs=[pre_model.input], outputs=[pre_model.output[0]])
+            
     else:
+        # Create model
+        model = rs_net_ch(num_classes=num_classes, ofms=ofms,
+                        use_aux=use_aux, remove_aux=remove_aux)
         model = tu.load_model_npy(model, model_path + 'max_l_g_weights.npy')
     # Write pruned model summary to txt file
     orig_stdout = sys.stdout
@@ -110,10 +132,14 @@ def main():
     # model.compile(optimizer=adam, loss=[focal_loss(alpha=.25, gamma=2),
     # focal_loss(alpha=.25, gamma=2)], metrics=[categorical_accuracy],loss_weights=[1.0,0.3])
     if use_aux:
-        model.compile(optimizer=adam, loss=[tu.focal_loss(alpha=.25, gamma=1),
-                                            tu.focal_loss(alpha=.25, gamma=1)],
-                      metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy],
-                      loss_weights=[1.0, 0.3])
+        if remove_aux:
+            model.compile(optimizer=adam, loss=[tu.focal_loss(alpha=.25, gamma=1)],
+                      metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])
+        else:
+            model.compile(optimizer=adam, loss=[tu.focal_loss(alpha=.25, gamma=1),
+                                                tu.focal_loss(alpha=.25, gamma=1)],
+                          metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy],
+                          loss_weights=[1.0, 0.3])
     else:
         model.compile(optimizer=adam, loss=[tu.focal_loss(alpha=.25, gamma=1)],
                       metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])

@@ -621,7 +621,7 @@ def fit_model(model, num_classes, first_class, last_class, batch_size,
                         verbose=1,
                         callbacks=callback_list,
                         workers=workers,
-                        use_multiprocessing=False)
+                        use_multiprocessing=use_multiproc)
 
     if finetuning:
         save_model(model, model_path+'rs_model_final_ft.h5')

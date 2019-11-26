@@ -252,8 +252,9 @@ def prune_model(model, model_type='googlenet_rs',
     else:
         print("Invalid Pruning Schedule selection: " + str(schedule))
         exit()
-
-    pruned_model = sparsity.prune_low_magnitude(model, **new_pruning_params)
+    
+    with sparsity.prune_scope():
+        pruned_model = sparsity.prune_low_magnitude(model, **new_pruning_params)
     print("Compiling model")
     if model_type == 'googlenet_rs':  # resource-scalable googlenet
 
@@ -298,7 +299,7 @@ def prune_model(model, model_type='googlenet_rs',
         pruned_model.compile(optimizer=op_type, loss=[loss],
                              metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])
 
-    elif model_type == 'googlenet':  # Vanilla googlenet for 1000 classes
+    elif model_type == 'googlenet' or model_type == 'mobilenet':  # Vanilla googlenet for 1000 classes
         pruned_model.compile(optimizer=op_type,
                              loss='categorical_crossentropy',
                              metrics=['accuracy'])

@@ -18,9 +18,7 @@ sys.path.append(p)
 import src.train_utils as tu
 import src.prune_utils as pu
 import src.eval_utils as eu
-from rs_net_ch import rs_net_ch
 import src.GoogLeNet.VanillaGoogLeNet.inception_v1 as inc_v1
-
 
 from tensorflow.python.keras.optimizers import Adam, RMSprop
 from tensorflow.python.keras.backend import int_shape
@@ -31,8 +29,9 @@ from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint, Lear
 from tensorflow.python.keras.utils import multi_gpu_model
 from tensorflow.python.keras import backend as K
 from tensorflow.python.ops import clip_ops
+
+import tensorflow_model_optimization as tfmot
 from tensorflow_model_optimization.sparsity import keras as sparsity
-from tensorflow.python.keras.applications.mobilenet import MobileNet
 
 # Mahya
 '''IMAGENET_PATH = '/HD1/'
@@ -59,59 +58,30 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5
 
 def main():
-    model_path = '../VanillaGoogLeNet/'
-    '''
-        Model options (*note, 'rs' stands for resource-scalable version of model:
-        googlenet_rs
-        mobilenet_rs
-        googlenet
-        mobilenet
-    '''
+    model_path = './'
     model_type = 'googlenet'
-    machine_name = 'Instance1'
-    symlnk_prfx = '1GARBAGE'
-    multi_outs = False
-    batch_size=64
-    num_epochs=48
-    garbage_multiplier=9
-    use_aux = True
-    remove_aux = True
-    num_outs=1
+
+    machine_name = 'mc'
 
     do_orig_eval = False
 
     if model_type == 'googlenet':
         model = inc_v1.InceptionV1(include_top=True, weights='imagenet')
-        #model.load_weights(model_path + 'googlenet_weights.h5')
-        num_classes = 1000
+        model.load_weights(model_path + 'googlenet_weights.h5')
     elif model_type == 'mobilenet':
-        model = MobileNet()
-        num_classes = 1000
-    else: #some form of resource-scalable cnn
+        return  # put mobilenet code here
+    else:  # some form of resource-scalable cnn
         # Load ofms list from .txt file
         ofms = []
         with open(model_path + 'ofms.txt') as f:
             for line in f:
                 ofm = line[:-1]
-                ofms.append(int(ofm))
+                ofms.append(ofm)
         num_classes = int(ofms[-1])  # number of classes
 
         # Create model
-        model = rs_net_ch(num_classes=num_classes, ofms=ofms, use_aux=use_aux)
+        model = rs_net_ch(num_classes=num_classes, ofms=ofms)
         model = tu.load_model_npy(model, model_path + 'max_l_g_weights.npy')
-        if remove_aux:
-            adam = Adam()
-            # Need to load in model to remove second aux output
-            weights = model.get_weights()
-            np.save(model_path + 'max_l_g_weights_preprune.npy', weights, fix_imports=True)
-            # Create model
-            pre_model = rs_net_ch(num_classes=num_classes, ofms=ofms,
-                                use_aux=use_aux)
-            pre_model = tu.load_model_npy(pre_model, model_path + 'max_l_g_weights_preprune.npy')
-            model = Model(inputs=[pre_model.input], outputs=[K.cast(pre_model.output[0], dtype='float32')])
-            '''model.compile(optimizer=adam, loss=[tu.focal_loss(alpha=.25, gamma=1)],
-                      metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])'''
-            
 
     if do_orig_eval:
         # Eval model before pruning to record data
@@ -120,8 +90,7 @@ def main():
         global_acc, raw_acc = eu.get_global_accuracy(model, num_classes, IMAGENET_PATH,
                                                      VAL_2_PATH, META_FILE,
                                                      model_path + 'selected_dirs.txt',
-                                                     raw_acc=True,
-                                                     symlink_prefix=symlnk_prfx)
+                                                     raw_acc=True)
         print("\nRaw Accuracy: " + str(raw_acc))
         print("Local Accuracy: " + str(local_accuracy))
         print("Global Accuracy: " + str(global_acc))
@@ -135,13 +104,10 @@ def main():
 
     pruned_model = pu.prune_model(model,
                                   num_classes=num_classes,
-                                  batch_size=batch_size,
-                                  initial_sparsity=0.95,
-                                  final_sparsity=0.96,
-                                  end_step = np.ceil(1.0 * ((num_classes - 1) 
-                                    * 1300) + (1300 * garbage_multiplier)
-                                    / batch_size).astype(np.int32) * (num_epochs-8),
-                                  prune_frequency=200,
+                                  batch_size=32,
+                                  initial_sparsity=0.0,
+                                  final_sparsity=0.90,
+                                  prune_frequency=1,
                                   stopping_patience=4,
                                   schedule='polynomial',
                                   model_path=model_path,
@@ -150,11 +116,10 @@ def main():
                                   val_path=VAL_2_PATH,
                                   meta_path=META_FILE,
                                   tb_logpath=model_path+"prune_logs",
-                                  symlink_prefix=symlnk_prfx,
-                                  multi_outputs=False,
-                                  num_epochs=num_epochs,
-                                  garbage_multiplier=garbage_multiplier,
-                                  workers=4)
+                                  num_epochs=1,
+                                  garbage_multiplier=8,
+                                  workers=6)
+
 
     # Load model with best local and global accuracy if file exists
     # Else just use returned model from last pruning iteration
@@ -165,7 +130,7 @@ def main():
         final_model = sparsity.strip_pruning(pruned_model)
 
     # Save model
-    final_model.save(model_path + 'final_pruned_model.h5')
+    final_model.save(model_path + 'final_pruned_googlenet_model.h5')
 
     local_accuracy = eu.get_local_accuracy(final_model,
                                            IMAGENET_PATH,
@@ -177,14 +142,13 @@ def main():
                                                  VAL_2_PATH,
                                                  META_FILE,
                                                  model_path + 'selected_dirs.txt',
-                                                 raw_acc=True,
-                                                 symlink_prefix=symlnk_prfx)
+                                                 raw_acc=True)
 
     print("\nRaw Accuracy: " + str(raw_acc))
     print("Local Accuracy: " + str(local_accuracy))
     print("Global Accuracy: " + str(global_acc))
     print("\nWriting results to file...")
-    with open(model_path + 'pruned_model_accuracy.txt', 'w+') as f:
+    with open(model_path + 'pruned_googlenet_accuracy.txt', 'w') as f:
         f.write('Machine: ' + machine_name + '\n')
         f.write(model_path + '\n')
         f.write('Local Accuracy: %f\n' % local_accuracy)
@@ -193,12 +157,12 @@ def main():
 
     # Calculate sparsity
     sparsity_val = pu.calculate_sparsity(final_model)
-    with open(model_path + 'sparsity_pruning_logs.txt', 'a+') as f:
+    with open(self.file_path + 'sparsity_googlenet_logs.txt', 'a+') as f:
         f.write('\nFINAL SPARSITY: %f\n' % sparsity_val)
 
     # Write pruned model summary to txt file
     orig_stdout = sys.stdout
-    with open(model_path + 'pruned_model_summary.txt', 'w+') as f:
+    with open(model_path + 'pruned_googlenet_summary.txt', 'w') as f:
         sys.stdout = f
         print(final_model.summary())
         f.write(final_model.summary())

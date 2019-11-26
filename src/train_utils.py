@@ -39,6 +39,8 @@ VALIDATION_BATCH_SIZE = 32
 
 def focal_loss(gamma=2., alpha=.25):
   def mtmd_nl(target, output, from_logits=False, axis=-1):
+    target = K.cast(target, dtype='float32')
+    output = K.cast(output, dtype='float32')
     rank = len(output.shape)
     axis = axis % rank
     output = output / K.sum(output, axis, True)
@@ -416,6 +418,7 @@ def fit_model(model, num_classes, first_class, last_class, batch_size,
               image_size=227,
               op_type=None,
               decay_params=None,
+              model_type='googlenet_rs',
               format='generator',
               imagenet_path=None,
               model_path='./',
@@ -480,19 +483,22 @@ def fit_model(model, num_classes, first_class, last_class, batch_size,
         val_img_path = orig_val_img_path
         wnid_labels, _ = load_imagenet_meta(os.path.join(imagenet_path, \
                                                          meta_path))
-        new_training_path = os.path.join(imagenet_path, symlink_prefix+"_TRAIN_")
-        new_validation_path = os.path.join(imagenet_path, symlink_prefix+"_VAL_")
-        selected_classes = create_garbage_links(num_classes, wnid_labels, train_img_path,
-                                                new_training_path, val_img_path, new_validation_path)
-        create_garbage_class_folder(selected_classes,
-                                    wnid_labels,
-                                    train_img_path,
-                                    new_training_path,
-                                    val_img_path,
-                                    new_validation_path,
-                                    garbage_multiplier=garbage_multiplier)
-        train_img_path = new_training_path
-        val_img_path = new_validation_path
+        # If resource-scalable model, create symbolic links and garbage class
+        if model_type == 'googlenet_rs' or model_type == 'mobilenet_rs':
+            new_training_path = os.path.join(imagenet_path, symlink_prefix+"_TRAIN_")
+            new_validation_path = os.path.join(imagenet_path, symlink_prefix+"_VAL_")
+            selected_classes = create_garbage_links(num_classes, wnid_labels, train_img_path,
+                                                    new_training_path, val_img_path, new_validation_path)
+            create_garbage_class_folder(selected_classes,
+                                        wnid_labels,
+                                        train_img_path,
+                                        new_training_path,
+                                        val_img_path,
+                                        new_validation_path,
+                                        garbage_multiplier=garbage_multiplier)
+            train_img_path = new_training_path
+            val_img_path = new_validation_path
+        
 
         train_data, val_data = create_dataset(train_img_path,
                                               val_img_path,

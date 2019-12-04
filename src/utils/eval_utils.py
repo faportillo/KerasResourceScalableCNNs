@@ -4,7 +4,7 @@ import sys
 sys.path.append("..")
 import tensorflow as tf
 import numpy as np
-import train_utils as tu
+import src.utils.train_utils as tu
 
 import os
 import math

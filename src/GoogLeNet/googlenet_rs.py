@@ -6,11 +6,15 @@ sys.path.append("..")
 import tensorflow as tf
 import numpy as np
 
-import src.train_utils as tu
+import src.utils.train_utils as tu
 
 import os
 import os.path as path
 p = path.abspath(path.join(__file__, "../../../.."))
+sys.path.append(p)
+p = path.abspath(path.join(__file__, "../../.."))
+sys.path.append(p)
+p = path.abspath(path.join(__file__, "../.."))
 sys.path.append(p)
 import math
 import time
@@ -42,7 +46,7 @@ def LRN(x):
 '''
     Define GoogLeNet Model
 '''
-def rs_net_ch(num_classes, ofms, use_aux=True, remove_aux=False):
+def googlenet_rs(num_classes, ofms, use_aux=True, remove_aux=False):
     assert len(ofms) == 58, "Number of ofms doesn't match model structure for GoogLeNet"
     '''
         X : input
@@ -415,7 +419,7 @@ def rs_net_ch(num_classes, ofms, use_aux=True, remove_aux=False):
     print("OUTPUT: " + str(int_shape(main_classifier_act)))
     if use_aux:
         print("\n\nUsing AUX\n\n")
-        if remove_aux: 
+        if remove_aux:
             print("\n\nREMOVING AUX\n\n")
             # Used to make finetuning and pruning faster,
             # aux not necessary for small channel resource-scalable models

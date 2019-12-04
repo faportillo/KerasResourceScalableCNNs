@@ -4,8 +4,8 @@ import sys
 sys.path.append("..")
 import tensorflow as tf
 import numpy as np
-import train_utils as tu
-import eval_utils as eu
+import src.utils.train_utils as tu
+import src.utils.eval_utils as eu
 
 import os
 import math
@@ -32,10 +32,13 @@ from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint, \
 # import tensorflow_model_optimization as tfmot
 from tensorflow_model_optimization.sparsity import keras as sparsity
 
+import src.config as cfg
+
 '''
     ToDo: 
     - Implement channel-based pruning like in NVIDIA Paper
 '''
+
 
 def remove_channels(model, layer, channel_list):
     '''
@@ -135,19 +138,19 @@ def prune_model(model, model_type='googlenet_rs',
     wnid_labels, _ = tu.load_imagenet_meta(os.path.join(imagenet_path, \
                                                         meta_path))
 
-    # copy selected_dirs.txt to current directory if not already in it
-    if not path.exists('selected_dirs.txt'):
-        try:
-            copyfile(model_path + 'selected_dirs.txt', './selected_dirs.txt')
-            print("File copied from %s" % model_path)
-        except IOError as e:
-            print("prune_model: Unable to copy file. %s" % e)
-            exit(1)
-        except:
-            print("prune_model: Unexpected error:", sys.exc_info())
-            exit(1)
-
     if model_type == 'googlenet_rs' or model_type == 'mobilenet_rs':
+        print(model_type)
+        # copy selected_dirs.txt to current directory if not already in it
+        if not path.exists('selected_dirs.txt'):
+            try:
+                copyfile(model_path + 'selected_dirs.txt', './selected_dirs.txt')
+                print("File copied from %s" % model_path)
+            except IOError as e:
+                print("prune_model: Unable to copy file. %s" % e)
+                exit(1)
+            except:
+                print("prune_model: Unexpected error:", sys.exc_info())
+                exit(1)
         new_training_path = os.path.join(imagenet_path, symlink_prefix + "_TRAIN_")
         new_validation_path = os.path.join(imagenet_path, symlink_prefix + "_VAL_")
         selected_classes = tu.create_garbage_links(num_classes, wnid_labels, train_img_path,
@@ -158,7 +161,7 @@ def prune_model(model, model_type='googlenet_rs',
         train_img_path = new_training_path
         val_img_path = new_validation_path
 
-    #tb_callback = TensorBoard(log_dir=tb_logpath)
+    # tb_callback = TensorBoard(log_dir=tb_logpath)
     termNaN_callback = TerminateOnNaN()
 
     ''' 
@@ -169,8 +172,12 @@ def prune_model(model, model_type='googlenet_rs',
         local_mntr = 'val_prune_low_magnitude_prob_main_local_accuracy'
         global_mntr = 'val_prune_low_magnitude_prob_main_global_accuracy'
     else:
-        local_mntr = 'val_local_accuracy'
-        global_mntr = 'val_global_accuracy'
+        if model_type is 'googlenet_rs' or model_type is 'mobilenet_rs':
+            local_mntr = 'val_local_accuracy'
+            global_mntr = 'val_global_accuracy'
+        else:
+            local_mntr = 'val_acc'
+            global_mntr = 'val_acc'
     early_stop_local = EarlyStopping(monitor=local_mntr,
                                      mode='max',
                                      verbose=1,
@@ -181,31 +188,35 @@ def prune_model(model, model_type='googlenet_rs',
                                       verbose=1,
                                       patience=int(stopping_patience / 2),
                                       min_delta=1)
-    save_weights_std_callback = ModelCheckpoint(model_path + 'best_pruned_local_weights.hdf5',
-                                                monitor=local_mntr,
+    save_weights_std_callback = ModelCheckpoint(model_path + 'best_pruned_weights.hdf5',
+                                                monitor=global_mntr,
                                                 verbose=1,
                                                 save_best_only=True,
                                                 save_weights_only=False,
                                                 mode='max',
                                                 period=val_period)
-    save_weights_callback = tu.SaveWeightsNumpy(num_classes,
-                                                model, model_path,
-                                                period=val_period,
-                                                selected_classes=selected_classes,
-                                                wnid_labels=wnid_labels,
-                                                orig_train_img_path=orig_train_img_path,
-                                                new_training_path=new_training_path,
-                                                orig_val_img_path=orig_val_img_path,
-                                                new_val_path=val_img_path,
-                                                weight_filename='pruned_weights.h5',
-                                                best_l_g_filename='pruned_max_l_g_weights.h5',
-                                                best_loc_filename='pruned_loc_weights.h5',
-                                                multi_outputs=multi_outputs,
-                                                is_pruning=True)
+
     callbacks = [termNaN_callback,
                  sparsity.UpdatePruningStep(),
                  sparsity.PruningSummaries(log_dir=tb_logpath),
-                 early_stop_local, early_stop_global, save_weights_callback, save_weights_std_callback]
+                 early_stop_local, early_stop_global, save_weights_std_callback]
+
+    if model_type is 'googlenet_rs' or model_type is 'mobilenet_rs':
+        save_weights_callback = tu.SaveWeightsNumpy(num_classes,
+                                                    model, model_path,
+                                                    period=val_period,
+                                                    selected_classes=selected_classes,
+                                                    wnid_labels=wnid_labels,
+                                                    orig_train_img_path=orig_train_img_path,
+                                                    new_training_path=new_training_path,
+                                                    orig_val_img_path=orig_val_img_path,
+                                                    new_val_path=val_img_path,
+                                                    weight_filename='pruned_weights.h5',
+                                                    best_l_g_filename='pruned_max_l_g_weights.h5',
+                                                    best_loc_filename='pruned_loc_weights.h5',
+                                                    multi_outputs=multi_outputs,
+                                                    is_pruning=True)
+        callbacks.append(save_weights_callback)
 
     if op_type == 'rmsprop':
         '''
@@ -238,11 +249,11 @@ def prune_model(model, model_type='googlenet_rs',
     f.close()
     print("Defining pruning schedule...")
     if schedule == 'polynomial':
-        new_pruning_params = {'pruning_schedule': sparsity.PolynomialDecay(initial_sparsity=initial_sparsity,
-                                                                           final_sparsity=final_sparsity,
-                                                                           begin_step=begin_step,
-                                                                           end_step=end_step,
-                                                                           frequency=prune_frequency)}
+        new_pruning_params = {'pruning_schedule': sparsity.PolynomialDecay(initial_sparsity=0.0,
+                                                                           final_sparsity=0.10,
+                                                                           begin_step=0,
+                                                                           end_step=200,
+                                                                           frequency=2)}
     elif schedule == 'constant':
         new_pruning_params = {'pruning_schedule': sparsity.ConstantSparsity(initial_sparsity=initial_sparsity,
                                                                             final_sparsity=final_sparsity,
@@ -252,9 +263,8 @@ def prune_model(model, model_type='googlenet_rs',
     else:
         print("Invalid Pruning Schedule selection: " + str(schedule))
         exit()
-    
-    with sparsity.prune_scope():
-        pruned_model = sparsity.prune_low_magnitude(model, **new_pruning_params)
+    pruned_model = sparsity.prune_low_magnitude(model, **new_pruning_params)
+    pruned_model = model
     print("Compiling model")
     if model_type == 'googlenet_rs':  # resource-scalable googlenet
 
@@ -327,8 +337,8 @@ def prune_model(model, model_type='googlenet_rs',
                                validation_steps=int(50000 / val_batch_size),
                                verbose=1, callbacks=callbacks, workers=workers,
                                use_multiprocessing=use_multiproc)
-    
-    save_model(model, model_path+'pruned_rs_model_final.h5')
+
+    save_model(model, model_path + 'pruned_rs_model_final.h5')
 
     return pruned_model
 

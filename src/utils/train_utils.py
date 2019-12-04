@@ -25,17 +25,18 @@ from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint, \
 from tensorflow.python.ops import clip_ops
 from tensorflow.keras.utils import Sequence
 
+import src.config as cfg
 
 # from model_shell import google_csn
 
-IMAGE_SIZE = 227
+IMAGE_SIZE = cfg.image_size
 ROT_RANGE = 30
 WIDTH_SHIFT_RANGE = 0.2
 HEIGHT_SHIFT_RANGE = 0.2
 ZOOM_RANGE = 0.2
 SHEAR_RANGE = 0.2
 HORIZONTAL_FLIP = True
-VALIDATION_BATCH_SIZE = 32
+VALIDATION_BATCH_SIZE = cfg.val_batch_size
 
 def focal_loss(gamma=2., alpha=.25):
   def mtmd_nl(target, output, from_logits=False, axis=-1):
@@ -412,7 +413,7 @@ def serialize(img, label, num_outputs=1):
     example_proto = tf.train.Example(features=tf.train.Features(feature=data))
     return example_proto.SerializeToString()
 
-def fit_model(model, num_classes, first_class, last_class, batch_size,
+def fit_model(model, num_classes, batch_size,
               val_batch_size=50,
               val_period=1,
               image_size=227,
@@ -434,6 +435,7 @@ def fit_model(model, num_classes, first_class, last_class, batch_size,
               num_outs=1,
               garbage_multiplier=1,
               workers=1,
+              max_queue_size=31,
               finetuning=False):
     '''
         :param model: Keras model
@@ -540,13 +542,17 @@ def fit_model(model, num_classes, first_class, last_class, batch_size,
                         ,verbose = 1, save_weights_only = True, period=1)
     '''
     termNaN_callback = TerminateOnNaN()
-    
+
     if multi_outputs:
         local_mntr = 'val_prune_low_magnitude_prob_main_local_accuracy'
         global_mntr = 'val_prune_low_magnitude_prob_main_global_accuracy'
     else:
-        local_mntr = 'val_local_accuracy'
-        global_mntr = 'val_global_accuracy'
+        if model_type is 'googlenet_rs' or model_type is 'mobilenet_rs':
+            local_mntr = 'val_local_accuracy'
+            global_mntr = 'val_global_accuracy'
+        else:
+            local_mntr = 'val_acc'
+            global_mntr = 'val_acc'
         
     if finetuning:
         mc_weight_filename = 'ft_weights.hdf5'
@@ -568,6 +574,23 @@ def fit_model(model, num_classes, first_class, last_class, batch_size,
                                                 mode='max',
                                                 period=val_period)
     callback_list = [tb_callback, termNaN_callback, save_weights_std_callback]
+
+    if model_type is 'googlenet_rs' or model_type is 'mobilenet_rs':
+        save_weights_callback = SaveWeightsNumpy(num_classes,
+                                                    model, model_path,
+                                                    period=val_period,
+                                                    selected_classes=selected_classes,
+                                                    wnid_labels=wnid_labels,
+                                                    orig_train_img_path=orig_train_img_path,
+                                                    new_training_path=new_training_path,
+                                                    orig_val_img_path=orig_val_img_path,
+                                                    new_val_path=val_img_path,
+                                                    weight_filename=weight_filename,
+                                                    best_l_g_filename=best_l_g_filename,
+                                                    best_loc_filename=best_loc_filename,
+                                                    multi_outputs=multi_outputs,
+                                                    is_pruning=True)
+        callback_list.append(save_weights_callback)
 
     '''
         If the training each branch individually, increase the number of epochs
@@ -596,21 +619,6 @@ def fit_model(model, num_classes, first_class, last_class, batch_size,
         print ('Invalid Optimizer. Exiting...')
         exit()
 
-    save_weights_callback = SaveWeightsNumpy(num_classes, model,
-                                             model_path,
-                                             period=val_period,
-                                             selected_classes=selected_classes,
-                                             wnid_labels=wnid_labels,
-                                             orig_train_img_path=orig_train_img_path,
-                                             new_training_path=new_training_path,
-                                             orig_val_img_path=orig_val_img_path,
-                                             weight_filename=weight_filename,
-                                             best_l_g_filename=best_l_g_filename,
-                                             best_loc_filename=best_loc_filename,
-                                             new_val_path=val_img_path,
-                                             multi_outputs=multi_outputs)
-    callback_list.append(save_weights_callback)
-
     # Fit and validate model based on generators
     if multi_outputs:
         use_multiproc = True
@@ -623,7 +631,7 @@ def fit_model(model, num_classes, first_class, last_class, batch_size,
                         validation_data=val_data,
                         validation_steps= int(50000 / val_batch_size),
                         validation_freq=val_period,
-                        max_queue_size = 31,
+                        max_queue_size=max_queue_size,
                         verbose=1,
                         callbacks=callback_list,
                         workers=workers,
@@ -1193,7 +1201,7 @@ class SaveWeightsNumpy(Callback):
         self.acc_sum = 0.0
         
         if self.is_pruning:
-            import prune_utils as pu
+            import src.utils.prune_utils as pu
             from tensorflow_model_optimization.sparsity import keras as sparsity
             self.pu = pu
             self.sparsity = sparsity

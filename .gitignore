@@ -9,3 +9,4 @@ weights*
 *dummy_train*
 *weights*
 *.ckpt*
+*config*

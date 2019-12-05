@@ -101,7 +101,13 @@ def get_local_accuracy(model,
     local_acc = correct_imgs * 1.0 / total_imgs
     return local_acc
 
-def get_raw_accuracy(model, num_classes, imagnenet_path, val_path, meta_file, selected_dirs_file, symlink_prefix='GARBAGE'):
+def get_raw_accuracy(model,
+                     num_classes,
+                     imagnenet_path,
+                     val_path,
+                     meta_file,
+                     selected_dirs_file,
+                     symlink_prefix='GARBAGE'):
     selected_dirs = []
     selected_dirs.append('')
     f = open(selected_dirs_file, 'r')
@@ -145,14 +151,14 @@ def get_raw_accuracy(model, num_classes, imagnenet_path, val_path, meta_file, se
                 garb_count += 1
             file_name = os.path.join(p, elem)
             img = Image.open(file_name)
-            img = img.resize((227, 227))
+            img = img.resize((image_size, image_size))
             img = np.array(img)
             img = img / 255.0
             if (len(img.shape) != 3) or (img.shape[0] * img.shape[1] * img.shape[2] !=
-                                         (227 * 227 * 3)):
+                                         (image_size * image_size * 3)):
                 # print ("Wrong format skipped")
                 continue
-            img = img.reshape(1, 227, 227, 3)
+            img = img.reshape(1, image_size, image_size, 3)
             pred = model.predict(img)
             total_imgs += 1
             if np.argmax(pred[0]) == correct_index:
@@ -163,27 +169,47 @@ def get_raw_accuracy(model, num_classes, imagnenet_path, val_path, meta_file, se
     raw_acc = correct_imgs * 1.0 / total_imgs
     return raw_acc
 
-def get_global_accuracy(model, num_classes, imagnenet_path, val_path, meta_file, selected_dirs_file, raw_acc=True, symlink_prefix='GARBAGE'):
-    selected_dirs = []
-    selected_dirs.append('')
-    f = open(selected_dirs_file, 'r')
-    for line in f:
-        line = line.strip('\n')
-        selected_dirs.append(line)
-    f.close()
+def get_global_accuracy(model,
+                        num_classes,
+                        imagnenet_path,
+                        val_path,
+                        meta_file,
+                        selected_dirs_file,
+                        raw_acc=True,
+                        image_size=227,
+                        symlink_prefix='GARBAGE',
+                        is_rs_model=True):
 
     val_img_path = os.path.join(imagnenet_path, val_path)
-    global_validation_path = os.path.join(imagnenet_path, symlink_prefix+"_VAL_")
-    wnid_labels, _ = tu.load_imagenet_meta(os.path.join(imagnenet_path, meta_file))
-    selected_classes = tu.create_garbage_links(num_classes, wnid_labels, '', '',
-                                               val_img_path, global_validation_path)
-    tu.create_garbage_class_folder(selected_classes, wnid_labels, '', '',
-                                   val_img_path, global_validation_path)
-
-    tu.change_garbage_class_folder_val(selected_classes, wnid_labels,
+    if is_rs_model is False:
+        fpath = get_file('imagenet_class_index.json',
+                         CLASS_INDEX_PATH,
+                         cache_subdir='models')
+        wnid_dict = json.load(open(fpath))
+    else:
+        global_validation_path = os.path.join(imagnenet_path, symlink_prefix + "_VAL_")
+        selected_classes = tu.create_garbage_links(num_classes, wnid_labels, '', '',
+                                                   val_img_path, global_validation_path)
+        tu.create_garbage_class_folder(selected_classes, wnid_labels, '', '',
                                        val_img_path, global_validation_path)
 
-    all_dirs = os.listdir(global_validation_path)
+        tu.change_garbage_class_folder_val(selected_classes, wnid_labels,
+                                           val_img_path, global_validation_path)
+        val_img_path = global_validation_path
+
+
+    all_dirs = os.listdir(val_img_path)
+    wnid_labels, _ = tu.load_imagenet_meta(os.path.join(imagnenet_path, meta_file))
+
+    if selected_dirs_file is not None:
+        selected_dirs = []
+        selected_dirs.append('')
+        f = open(selected_dirs_file, 'r')
+        for line in f:
+            line = line.strip('\n')
+            selected_dirs.append(line)
+        f.close()
+
     total_imgs = 0
     correct_global_imgs = 0
     correct_raw_imgs = 0
@@ -191,16 +217,24 @@ def get_global_accuracy(model, num_classes, imagnenet_path, val_path, meta_file,
 
     for folder in all_dirs:
         correct_index = 0
-        if folder in selected_dirs:
-            correct_index = selected_dirs.index(folder)
-            global_index = 1
-        elif folder == 'gclass':
-            correct_index = 0
-            global_index = 0
+        if selected_dirs_file is not None:
+            if folder in selected_dirs:
+                if is_rs_model:
+                    correct_index = selected_dirs.index(folder)
+                else:
+                    correct_index = int(get_key(folder, wnid_dict))
+                global_index = 1
+            elif folder == 'gclass' or folder not in selected_dirs:
+                correct_index = 0
+                global_index = 0
+            else:
+                continue
+            print(correct_index)
         else:
-            continue
-        print(correct_index)
-        p = os.path.join(global_validation_path, folder)
+            correct_index = selected_dirs.index(folder)
+            global_index = -1
+
+        p = os.path.join(val_img_path, folder)
         all_imgs = os.listdir(p)
 
         for elem in all_imgs:
@@ -210,14 +244,14 @@ def get_global_accuracy(model, num_classes, imagnenet_path, val_path, meta_file,
                 garb_count += 1
             file_name = os.path.join(p, elem)
             img = Image.open(file_name)
-            img = img.resize((227, 227))
+            img = img.resize((image_size, image_size))
             img = np.array(img)
             img = img / 255.0
             if (len(img.shape) != 3) or (img.shape[0] * img.shape[1] * img.shape[2] !=
-                                         (227 * 227 * 3)):
+                                         (image_size * image_size * 3)):
                 # print ("Wrong format skipped")
                 continue
-            img = img.reshape(1, 227, 227, 3)
+            img = img.reshape(1, image_size, image_size, 3)
             pred = model.predict(img)
             if isinstance(pred, list): # len(pred.shape) == 3 or len(pred.shape) == 4:
                 print(np.argmax(pred[0]))

@@ -94,19 +94,19 @@ def prune_model():
 
     if cfg.do_orig_eval:
         # Eval model before pruning to record data
-        local_accuracy = eu.get_local_accuracy(model, IMAGENET_PATH,
-                                               VAL_2_PATH, model_path + 'selected_dirs.txt')
-        global_acc, raw_acc = eu.get_global_accuracy(model, num_classes, IMAGENET_PATH,
-                                                     VAL_2_PATH, META_FILE,
-                                                     model_path + 'selected_dirs.txt',
+        local_accuracy = eu.get_local_accuracy(model, cfg.IMAGENET_PATH,
+                                               cfg.VAL_2_PATH, cfg.model_path + 'selected_dirs.txt')
+        global_acc, raw_acc = eu.get_global_accuracy(model, cfg.num_classes, cfg.IMAGENET_PATH,
+                                                     cfg.VAL_2_PATH, cfg.META_FILE,
+                                                     cfg.model_path + 'selected_dirs.txt',
                                                      raw_acc=True,
-                                                     symlink_prefix=symlnk_prfx)
+                                                     symlink_prefix=cfg.symlnk_prfx)
         print("\nRaw Accuracy: " + str(raw_acc))
         print("Local Accuracy: " + str(local_accuracy))
         print("Global Accuracy: " + str(global_acc))
         print("\nWriting results to file...")
-        with open(model_path + 'model_accuracy.txt', 'w') as f:
-            f.write('Machine: pitagyro\n')
+        with open(cfg.model_path + 'model_accuracy.txt', 'w') as f:
+            f.write('Machine: ' + cfg.machine_name + '\n')
             f.write(model_path + '\n')
             f.write('Local Accuracy: %f\n' % local_accuracy)
             f.write('Global Accuracy: %f\n' % global_acc)
@@ -168,7 +168,7 @@ def prune_model():
     print("Global Accuracy: " + str(global_acc))
     print("\nWriting results to file...")
     with open(cfg.model_path + 'pruned_model_accuracy.txt', 'w+') as f:
-        f.write('Machine: ' + machine_name + '\n')
+        f.write('Machine: ' + cfg.machine_name + '\n')
         f.write(cfg.model_path + '\n')
         f.write('Local Accuracy: %f\n' % local_accuracy)
         f.write('Global Accuracy: %f\n' % global_acc)

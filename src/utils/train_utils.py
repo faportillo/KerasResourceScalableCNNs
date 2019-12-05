@@ -286,48 +286,61 @@ def create_dataset(train_data_path,
         h_flip = False
 
     # print("Grabbing Training Dataset")
-    train_datagen = ImageDataGenerator(samplewise_center=False,
-                                       rotation_range=rot_range,
-                                       width_shift_range=w_shift_r,
-                                       height_shift_range=h_shift_r,
-                                       zoom_range=z_range,
-                                       shear_range=shear_r,
-                                       horizontal_flip=h_flip,
-                                       fill_mode='nearest', rescale=1. / 255)
+    if train_data_path is not None:
+        train_datagen = ImageDataGenerator(samplewise_center=False,
+                                           rotation_range=rot_range,
+                                           width_shift_range=w_shift_r,
+                                           height_shift_range=h_shift_r,
+                                           zoom_range=z_range,
+                                           shear_range=shear_r,
+                                           horizontal_flip=h_flip,
+                                           fill_mode='nearest', rescale=1. / 255)
+        '''
+            Change follow_links to True when using symbolic links
+            to training and validation data
+        '''
+        train_generator = train_datagen.flow_from_directory(train_data_path,
+                                                            target_size=(image_size, image_size),
+                                                            batch_size=batch_size,
+                                                            shuffle=True,
+                                                            class_mode='categorical',
+                                                            follow_links=True)
 
-    val_datagen = ImageDataGenerator(rescale=1. / 255)
+    if val_data_path is not None:
+        val_datagen = ImageDataGenerator(rescale=1. / 255)
 
-    '''
-      Change follow_links to True when using symbolic links
-      to training and validation data
-    '''
-    train_generator = train_datagen.flow_from_directory(train_data_path,
-                                                        target_size=(image_size, image_size),
-                                                        batch_size=batch_size,
-                                                        shuffle=True,
-                                                        class_mode='categorical',
-                                                        follow_links=True)
-    # print("Grabbing Validation Dataset")
-    validation_generator = val_datagen.flow_from_directory(val_data_path,
-                                                           target_size=(image_size, image_size),
-                                                           batch_size=val_batch_size,
-                                                           shuffle=True,
-                                                           class_mode='categorical',
-                                                           follow_links=True)
+        # print("Grabbing Validation Dataset")
+        validation_generator = val_datagen.flow_from_directory(val_data_path,
+                                                               target_size=(image_size, image_size),
+                                                               batch_size=val_batch_size,
+                                                               shuffle=True,
+                                                               class_mode='categorical',
+                                                               follow_links=True)
     if num_outputs == 1:
         print("")
     elif num_outputs == 2:
-        train_generator = create_multi_generator(train_generator,
-                                                batch_size=batch_size,
-                                                num_outputs=num_outputs)
-        validation_generator = create_multi_generator(validation_generator,
-                                                batch_size=batch_size,
-                                                num_outputs=num_outputs)
+        if train_data_path is not None:
+            train_generator = create_multi_generator(train_generator,
+                                                    batch_size=batch_size,
+                                                    num_outputs=num_outputs)
+        if val_data_path is not None:
+            validation_generator = create_multi_generator(validation_generator,
+                                                    batch_size=batch_size,
+                                                    num_outputs=num_outputs)
     else:
         raise Exception("Invalid num_outputs type")
 
     if format=='generator':
-        return train_generator, validation_generator
+        if train_data_path is not None and val_data_path is not None:
+            return train_generator, validation_generator
+        elif train_data_path is None and val_data_path is not None:
+            return validation_generator
+        elif train_data_path is not None and val_data_path is None:
+            return train_generator
+        else:
+            print("No training or validation paths specified...")
+            exit()
+
     elif format=='tfrecord':
         if tf_record_dir is None:
             raise Exception("No tf_record_dir specified. Need to define in order to save TFRecord files in a location")

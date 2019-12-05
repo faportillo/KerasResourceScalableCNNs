@@ -29,8 +29,8 @@ load_weights = False # Used if loading weights to resume training, in case it st
     Booleans to determine what you want to do with the model
 ****************************************************************************************************************'''
 model_train = False
-model_eval = False
-model_prune = True
+model_eval = True
+model_prune = False
 model_finetune = False
 model_quantize = False
 

@@ -35,7 +35,7 @@ from tensorflow.python.ops import clip_ops
 
 import config as cfg
 
-def prune_model():
+def eval_model():
     if not os.path.exists(cfg.model_path):
         os.makedirs(cfg.model_path)
 
@@ -94,8 +94,10 @@ def prune_model():
 
     if '_rs' in cfg.model_type:
         # Get Local and Global Accuracy for Resource-Scalable Models
+        print("GETTING LOCAL ACCURACY")
         local_accuracy = eu.get_local_accuracy(model, cfg.IMAGENET_PATH,
                                                cfg.VAL_2_PATH, cfg.model_path + 'selected_dirs.txt')
+        print("GETTING GLOBAL ACCURACY")
         global_acc, raw_acc = eu.get_global_accuracy(model, cfg.num_classes, cfg.IMAGENET_PATH,
                                                      cfg.VAL_2_PATH, cfg.META_FILE,
                                                      cfg.model_path + 'selected_dirs.txt',
@@ -110,25 +112,38 @@ def prune_model():
             then can do local & global accuracy
         '''
         if path.exists(cfg.model_path + 'selected_dirs.txt'):
+            print("GETTING LOCAL ACCURACY")
             local_accuracy = eu.get_local_accuracy(model,
                                                    cfg.IMAGENET_PATH,
                                                    cfg.VAL_2_PATH,
                                                    cfg.model_path + 'selected_dirs.txt',
                                                    image_size=cfg.image_size,
                                                    is_rs_model=False)
+            print("GETTING GLOBAL ACCURACY")
+            global_acc, raw_acc = eu.get_global_accuracy(model,
+                                                       cfg.num_classes,
+                                                       cfg.IMAGENET_PATH,
+                                                       cfg.VAL_2_PATH,
+                                                       cfg.META_FILE,
+                                                       raw_acc=True,
+                                                       selected_dirs_file=cfg.model_path + 'selected_dirs.txt',
+                                                       image_size=cfg.image_size,
+                                                       symlink_prefix=cfg.symlnk_prfx,
+                                                       is_rs_model=False)
 
         else:
             local_accuracy = 0.0
-
-        eu.get_global_accuracy(model,
-                               cfg.num_classes,
-                               cfg.IMAGENET_PATH,
-                               cfg.VAL_2_PATH,
-                               cfg.META_FILE,
-                               raw_acc=True,
-                               image_size=cfg.image_size,
-                               symlink_prefix=cfg.symlnk_prfx,
-                               is_rs_model=True)
+            print("GETTING GLOBAL ACCURACY")
+            global_acc, raw_acc = eu.get_global_accuracy(model,
+                                                       cfg.num_classes,
+                                                       cfg.IMAGENET_PATH,
+                                                       cfg.VAL_2_PATH,
+                                                       cfg.META_FILE,
+                                                       raw_acc=True,
+                                                       selected_dirs_file=None,
+                                                       image_size=cfg.image_size,
+                                                       symlink_prefix=cfg.symlnk_prfx,
+                                                       is_rs_model=False)
 
     print("\nRaw Accuracy: " + str(raw_acc))
     print("Local Accuracy: " + str(local_accuracy))

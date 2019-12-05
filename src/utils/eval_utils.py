@@ -181,6 +181,8 @@ def get_global_accuracy(model,
                         is_rs_model=True):
 
     val_img_path = os.path.join(imagnenet_path, val_path)
+    wnid_labels, _ = tu.load_imagenet_meta(os.path.join(imagnenet_path, meta_file))
+
     if is_rs_model is False:
         fpath = get_file('imagenet_class_index.json',
                          CLASS_INDEX_PATH,
@@ -199,7 +201,6 @@ def get_global_accuracy(model,
 
 
     all_dirs = os.listdir(val_img_path)
-    wnid_labels, _ = tu.load_imagenet_meta(os.path.join(imagnenet_path, meta_file))
 
     if selected_dirs_file is not None:
         selected_dirs = []
@@ -225,14 +226,18 @@ def get_global_accuracy(model,
                     correct_index = int(get_key(folder, wnid_dict))
                 global_index = 1
             elif folder == 'gclass' or folder not in selected_dirs:
-                correct_index = 0
+                if is_rs_model:
+                    correct_index = selected_dirs.index(folder)
+                else:
+                    correct_index = int(get_key(folder, wnid_dict))
                 global_index = 0
             else:
                 continue
             print(correct_index)
         else:
-            correct_index = selected_dirs.index(folder)
+            correct_index = int(get_key(folder, wnid_dict))
             global_index = -1
+        #print(correct_index)
 
         p = os.path.join(val_img_path, folder)
         all_imgs = os.listdir(p)
@@ -284,7 +289,7 @@ def get_global_accuracy(model,
                 print("Invalid prediction shape...")
 
             print("[Raw] Total: " + str(total_imgs) + ", correct: " + \
-                  str(correct_raw_imgs) + ", GLOBAL ACC:" + str(correct_raw_imgs * 1.0 / total_imgs))
+                  str(correct_raw_imgs) + ", RAW ACC:" + str(correct_raw_imgs * 1.0 / total_imgs))
             print("[Global] Total: " + str(total_imgs) + ", correct: " + \
                   str(correct_global_imgs) + ", GLOBAL ACC:" + str(correct_global_imgs * 1.0 / total_imgs))
             print()

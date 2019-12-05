@@ -602,7 +602,7 @@ def fit_model(model, num_classes, batch_size,
                                                     best_l_g_filename=best_l_g_filename,
                                                     best_loc_filename=best_loc_filename,
                                                     multi_outputs=multi_outputs,
-                                                    is_pruning=True)
+                                                    is_pruning=False)
         callback_list.append(save_weights_callback)
 
     '''

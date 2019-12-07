@@ -29,8 +29,8 @@ load_weights = False # Used if loading weights to resume training, in case it st
     Booleans to determine what you want to do with the model
 ****************************************************************************************************************'''
 model_train = False
-model_eval = True
-model_prune = False
+model_eval = False
+model_prune = True
 model_finetune = False
 model_quantize = False
 
@@ -55,27 +55,27 @@ CONFIG_PATH = os.getcwd()
 VALID_TIME_MINUTE = 5'''
 
 # Pitagyro
-IMAGENET_PATH = '/HD1/'
+'''IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'ILSVRC2012_img_train/'
 VAL_2_PATH = 'Val_2/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5
+VALID_TIME_MINUTE = 5'''
 
 # MC
-'''IMAGENET_PATH = '/HD1/'
+IMAGENET_PATH = '/HD1/'
 TRAIN_PATH = 'train/'
 VAL_2_PATH = 'val/'
 META_FILE = 'ILSVRC2012_devkit_t12/data/meta.mat'
 CONFIG_PATH = os.getcwd()
-VALID_TIME_MINUTE = 5'''
+VALID_TIME_MINUTE = 5
 
 '''****************************************************************************************************************
     STEP 4
     If training: model_path = directory that will store the trained model weights and related files
     If validating/finetuning/pruning: model_path = directory where weights are saved.
 ****************************************************************************************************************'''
-model_path = './test/'
+model_path = './vgn_10/'
 tb_logpath= model_path + "/logs" # Directory for TensorBoard Log Files
 
 '''****************************************************************************************************************
@@ -109,10 +109,10 @@ use_aux = False  # **DEPRECATED
 ****************************************************************************************************************'''
 prune_weight_file = 'max_l_g_weights.npy' # Trained model weights to prune with
 do_orig_eval = False # If you want to do eval on original models before pruning to get the Global and Local Accuracies
-initial_sparsity = 0.95
-final_sparsity = 0.96
+initial_sparsity = 0.94
+final_sparsity = 0.95
 begin_step = 0
-end_step = np.ceil(1.0 * ((num_classes - 1) * 1300) + (1300 * garbage_multiplier) / batch_size).astype(np.int32) * (num_epochs-8)
+end_step = np.ceil(1.0 * ((num_classes - 1) * 1300) + (1300 * garbage_multiplier) / batch_size).astype(np.int32) * (num_epochs-2)
 prune_frequency = 200
 stopping_patience = 4
 schedule = 'polynomial'  # Supports 'polynomial' and 'constant' pruning

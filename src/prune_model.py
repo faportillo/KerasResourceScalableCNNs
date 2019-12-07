@@ -33,6 +33,8 @@ from tensorflow.python.keras.utils import multi_gpu_model
 from tensorflow.python.keras import backend as K
 from tensorflow.python.ops import clip_ops
 
+from tensorflow_model_optimization.sparsity import keras as sparsity
+
 import config as cfg
 
 def prune_model():

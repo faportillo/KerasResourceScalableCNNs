@@ -10,3 +10,4 @@ weights*
 *weights*
 *.ckpt*
 *config*
+config.py

@@ -219,6 +219,7 @@ def get_global_accuracy(model,
     for folder in all_dirs:
         correct_index = 0
         if selected_dirs_file is not None:
+            print("Folder: " + str(folder))
             if folder in selected_dirs:
                 if is_rs_model:
                     correct_index = selected_dirs.index(folder)
@@ -233,7 +234,7 @@ def get_global_accuracy(model,
                 global_index = 0
             else:
                 continue
-            print(correct_index)
+            #print(correct_index)
         else:
             print("Folder: " + str(folder))
             correct_index = int(get_key(folder, wnid_dict))

@@ -23,6 +23,7 @@ from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint, Lear
 from tensorflow.python.keras.utils import multi_gpu_model
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.utils.data_utils import get_file
+import config as cfg
 
 from scipy.io import loadmat
 
@@ -219,7 +220,7 @@ def get_global_accuracy(model,
     for folder in all_dirs:
         correct_index = 0
         if selected_dirs_file is not None:
-            print("Folder: " + str(folder))
+            #print("Folder: " + str(folder))
             if folder in selected_dirs:
                 if is_rs_model:
                     correct_index = selected_dirs.index(folder)
@@ -233,7 +234,12 @@ def get_global_accuracy(model,
                     correct_index = int(get_key(folder, wnid_dict))
                 global_index = 0
             else:
-                continue
+                if is_rs_model:
+                    correct_index = 0 #selected_dirs.index(folder)
+                else:
+                    correct_index = int(get_key(folder, wnid_dict))
+                global_index = 0
+                #continue
             #print(correct_index)
         else:
             print("Folder: " + str(folder))
@@ -245,7 +251,8 @@ def get_global_accuracy(model,
         all_imgs = os.listdir(p)
 
         for elem in all_imgs:
-            if garb_count == (50000 - (int(num_classes)-1) * 50):
+            if (garb_count == (50000 - (int(num_classes)-1) * 50) and '_rs' in cfg.model_type) \
+                or (total_imgs==50000 and '_rs' not in cfg.model_type):
                 break
             if correct_index == 0:
                 garb_count += 1

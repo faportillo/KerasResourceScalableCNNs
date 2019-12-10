@@ -21,7 +21,7 @@ lambda_val = 0.25
 model_type = 'googlenet'
 machine_name = 'Instance1' # Name of machine for training, in case training on multiple machines
 # Creates prefixes for symbolic links when creating training data, in case using shared file system to pull data
-symlnk_prfx = '1GARBAGE'
+symlnk_prfx = 'EVAL1GARBAGE'
 load_weights = False # Used if loading weights to resume training, in case it stops prematurely
 
 '''****************************************************************************************************************
@@ -29,8 +29,8 @@ load_weights = False # Used if loading weights to resume training, in case it st
     Booleans to determine what you want to do with the model
 ****************************************************************************************************************'''
 model_train = False
-model_eval = False
-model_prune = True
+model_eval = True
+model_prune = False
 model_finetune = False
 model_quantize = False
 
@@ -124,7 +124,7 @@ schedule = 'polynomial'  # Supports 'polynomial' and 'constant' pruning
 ****************************************************************************************************************'''
 eval_weight_file = 'max_l_g_weights.npy'
 is_pruned = True  # True if evaluating a pruned model
-is_finetuned = True  # True if evalauating a finetuned model
+is_finetuned = False  # True if evalauating a finetuned model
 
 
 '''****************************************************************************************************************

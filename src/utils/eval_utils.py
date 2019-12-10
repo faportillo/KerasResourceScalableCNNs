@@ -235,6 +235,7 @@ def get_global_accuracy(model,
                 continue
             print(correct_index)
         else:
+            print("Folder: " + str(folder))
             correct_index = int(get_key(folder, wnid_dict))
             global_index = -1
         #print(correct_index)

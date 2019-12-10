@@ -227,7 +227,7 @@ def get_global_accuracy(model,
                 global_index = 1
             elif folder == 'gclass' or folder not in selected_dirs:
                 if is_rs_model:
-                    correct_index = selected_dirs.index(folder)
+                    correct_index = 0 #selected_dirs.index(folder)
                 else:
                     correct_index = int(get_key(folder, wnid_dict))
                 global_index = 0

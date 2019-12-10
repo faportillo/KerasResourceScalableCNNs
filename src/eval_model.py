@@ -100,11 +100,11 @@ def eval_model():
         print('\n\nCalculating sparsity... ')
         print(sparsity_val)
         print('\n\n')
-        if is_finetuned:
-            with open(model_path + 'ft_sparsity_pruning_logs.txt', 'a+') as f:
+        if cfg.is_finetuned:
+            with open(cfg.model_path + 'ft_sparsity_pruning_logs.txt', 'a+') as f:
                 f.write('\nFINAL SPARSITY: %f\n' % sparsity_val)
         else:
-            with open(model_path + 'sparsity_pruning_logs.txt', 'a+') as f:
+            with open(cfg.model_path + 'sparsity_pruning_logs.txt', 'a+') as f:
                 f.write('\nFINAL SPARSITY: %f\n' % sparsity_val)
 
     if '_rs' in cfg.model_type:

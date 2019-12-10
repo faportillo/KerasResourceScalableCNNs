@@ -16,7 +16,7 @@ sys.path.append(p)
 p = path.abspath(path.join(__file__, "../../.."))
 sys.path.append(p)
 import src.utils.train_utils as tu
-import src.utils.prune_utils as pu
+#import src.utils.prune_utils as pu
 import src.utils.eval_utils as eu
 from src.GoogLeNet.googlenet_rs import googlenet_rs
 from src.MobileNet.mobilenet_rs import mobilenet_rs
@@ -91,6 +91,19 @@ def eval_model():
     else:
         model.compile(optimizer=opt, loss=[tu.focal_loss(alpha=.25, gamma=1)],
                       metrics=[categorical_accuracy, tu.global_accuracy, tu.local_accuracy])
+
+    if cfg.is_pruned:
+        import src.utils.prune_utils as pu
+        sparsity_val = pu.calculate_sparsity(model)
+        print('\n\nCalculating sparsity... ')
+        print(sparsity_val)
+        print('\n\n')
+        if is_finetuned:
+            with open(model_path + 'ft_sparsity_pruning_logs.txt', 'a+') as f:
+                f.write('\nFINAL SPARSITY: %f\n' % sparsity_val)
+        else:
+            with open(model_path + 'sparsity_pruning_logs.txt', 'a+') as f:
+                f.write('\nFINAL SPARSITY: %f\n' % sparsity_val)
 
     if '_rs' in cfg.model_type:
         # Get Local and Global Accuracy for Resource-Scalable Models

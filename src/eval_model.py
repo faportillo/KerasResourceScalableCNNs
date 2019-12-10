@@ -52,7 +52,7 @@ def eval_model():
             exit(1)
 
         model = googlenet_rs(num_classes=cfg.num_classes, ofms=ofms, use_aux=cfg.use_aux)
-        model = tu.load_model_npy(model, cfg.model_path + 'max_l_g_weights.npy')
+        model = tu.load_model_npy(model, cfg.model_path + cfg.eval_weight_file)
 
     elif cfg.model_type == 'mobilenet_rs':
         if path.exists(cfg.model_path + 'ofms.txt'):
@@ -66,13 +66,15 @@ def eval_model():
                   "requires an ofms.txt file. Make sure to train model first")
             exit(1)
         model = mobilenet_rs(num_classes=cfg.num_classes, ofms=ofms)
-        model = tu.load_model_npy(model, cfg.model_path + 'max_l_g_weights.npy')
+        model = tu.load_model_npy(model, cfg.model_path + cfg.eval_weight_file)
     elif cfg.model_type == 'googlenet':
         model = inc_v1.InceptionV1(include_top=True, weights='imagenet')
-
+        if cfg.is_pruned:
+            model = load_model(cfg.model_path + 'final_pruned_model.h5')
     elif cfg.model_type == 'mobilenet':
         model = MobileNet()
-
+        if cfg.is_pruned:
+            model = load_model(cfg.model_path + 'final_pruned_model.h5')
     if cfg.optimizer == 'adam':
         opt = Adam(lr=cfg.learning_rate)
     elif cfg.optimizer == 'rmsprop':

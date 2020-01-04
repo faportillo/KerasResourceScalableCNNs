@@ -18,18 +18,18 @@ lambda_val = 0.25
         googlenet / googlenet_rs
         mobilenet / mobilenet_rs
 ****************************************************************************************************************'''
-model_type = 'googlenet'
+model_type = 'mobilenet_rs_layer'
 machine_name = 'Instance1' # Name of machine for training, in case training on multiple machines
 # Creates prefixes for symbolic links when creating training data, in case using shared file system to pull data
-symlnk_prfx = 'EVAL1GARBAGE'
+symlnk_prfx = 'EVAL1_GARBAGE'
 load_weights = False # Used if loading weights to resume training, in case it stops prematurely
 
 '''****************************************************************************************************************
     STEP 2
     Booleans to determine what you want to do with the model
 ****************************************************************************************************************'''
-model_train = False
-model_eval = True
+model_train = True
+model_eval = False
 model_prune = False
 model_finetune = False
 model_quantize = False
@@ -75,7 +75,7 @@ VALID_TIME_MINUTE = 5
     If training: model_path = directory that will store the trained model weights and related files
     If validating/finetuning/pruning: model_path = directory where weights are saved.
 ****************************************************************************************************************'''
-model_path = './vgn_10/'
+model_path = './L5_25p_layer/'
 tb_logpath= model_path + "/logs" # Directory for TensorBoard Log Files
 
 '''****************************************************************************************************************
@@ -98,7 +98,7 @@ batch_size = 64  # Training Batch size
 val_batch_size = 64 # Validation_Batch Size
 validation_period = 10 # Period to do validation step (i.e. if =10, evaluate on validation data every 10 epochs)
 augment_data = True  # Augment data or not
-garbage_multiplier = 9  # when =n loads 1300*n garbage data per epoch, the higher = more misc class data during training
+garbage_multiplier = 6  # when =n loads 1300*n garbage data per epoch, the higher = more misc class data during training
 workers = 4  # Number of workers/threads for multiprocessing data (Based on number of CPU cores)
 max_queue_size = 31  # Data loading queue of batches before passing to GPU
 use_aux = False  # **DEPRECATED
@@ -134,6 +134,6 @@ if model_type == 'googlenet' or model_type == 'mobilenet':
     image_size = 224
     num_classes = 1000  # HAS to be 1000 classes for vanilla model types
     do_orig_eval = False
-elif model_type == 'googlenet_rs' or model_type == 'mobilenet_rs':
+elif model_type == 'googlenet_rs' or model_type == 'mobilenet_rs' or model_type == 'mobilenet_rs_layer':
     image_size = 227
 

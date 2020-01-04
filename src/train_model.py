@@ -18,6 +18,8 @@ sys.path.append(p)
 import src.utils.train_utils as tu
 from src.GoogLeNet.googlenet_rs import googlenet_rs
 from src.MobileNet.mobilenet_rs import mobilenet_rs
+from src.MobileNet.mobilenet_rs_25layer import mobilenet_rs_25layer
+
 import src.GoogLeNet.VanillaGoogLeNet.inception_v1 as inc_v1
 from tensorflow.python.keras.applications.mobilenet import MobileNet
 
@@ -80,13 +82,25 @@ def train_model():
                     ofms.append(int(ofm))
         else:
             if cfg.num_classes == 5:
-                ofms = [32, 43, 107, 116, 197, 197, 197, 256, 512, 512, 5]
+                if cfg.lambda_val == 0.25:
+                    ofms = [32, 43, 107, 116, 197, 197, 197, 256, 512, 512, 5]
+                elif cfg.lambda_val == 0.045:
+                    ofms = [16, 21, 43, 43, 85, 85, 171, 128, 256, 256, 5]
             elif cfg.num_classes == 10:
-                ofms = [32, 64, 116, 116, 197, 197, 213, 301, 569, 569, 10]
+                if cfg.lambda_val == 0.25:
+                    ofms = [32, 64, 116, 116, 197, 197, 213, 301, 569, 569, 10]
+                elif cfg.lambda_val == 0.045:
+                    ofms = [16, 32, 64, 64, 116, 122, 128, 138, 250, 250, 10]
             elif cfg.num_classes == 15:
-                ofms = [32, 43, 107, 116, 213, 213, 284, 320, 512, 512, 15]
+                if cfg.lambda_val == 0.25:
+                    ofms = [32, 43, 107, 116, 213, 213, 284, 320, 512, 512, 15]
+                elif cfg.lambda_val == 0.045:
+                    ofms = [16, 32, 64, 67, 135, 135, 138, 138, 263, 263, 15]
             elif cfg.num_classes == 20:
-                ofms = [32, 43, 107, 116, 213, 213, 284, 320, 512, 512, 20]
+                if cfg.lambda_val == 0.25:
+                    ofms = [32, 43, 107, 116, 213, 213, 284, 320, 512, 512, 20]
+                elif cfg.lambda_val == 0.045:
+                    ofms = [16, 21, 53, 58, 107, 107, 142, 160, 256, 256, 20]
             else:
                 print("Unsupported number of classes for model type." +
                       " Currently support exists for 5, 10, 15, and 20 classes. Terminating...")
@@ -96,7 +110,44 @@ def train_model():
                     f.write("%s\n" % ofm)
 
         model = mobilenet_rs(num_classes=cfg.num_classes, ofms=ofms)
-
+    
+    elif cfg.model_type == 'mobilenet_rs_layer':
+        if path.exists(cfg.model_path + 'ofms.txt'):
+            ofms = []
+            with open(cfg.model_path + 'ofms.txt') as f:
+                for line in f:
+                    ofm = line[:-1]
+                    ofms.append(int(ofm))
+        else:
+            if cfg.num_classes == 5:
+                if cfg.lambda_val == 0.25:
+                    ofms = [32, 64, 128, 128, 256, 256, 512, 512, 512, 512, 5]
+                elif cfg.lambda_val == 0.045:
+                    ofms = [16, 21, 43, 43, 85, 85, 171, 128, 256, 256, 5]
+            elif cfg.num_classes == 10:
+                if cfg.lambda_val == 0.25:
+                    ofms = [32, 64, 116, 116, 197, 197, 213, 301, 569, 569, 10]
+                elif cfg.lambda_val == 0.045:
+                    ofms = [16, 32, 64, 64, 116, 122, 128, 138, 250, 250, 10]
+            elif cfg.num_classes == 15:
+                if cfg.lambda_val == 0.25:
+                    ofms = [32, 43, 107, 116, 213, 213, 284, 320, 512, 512, 15]
+                elif cfg.lambda_val == 0.045:
+                    ofms = [16, 32, 64, 67, 135, 135, 138, 138, 263, 263, 15]
+            elif cfg.num_classes == 20:
+                if cfg.lambda_val == 0.25:
+                    ofms = [32, 43, 107, 116, 213, 213, 284, 320, 512, 512, 20]
+                elif cfg.lambda_val == 0.045:
+                    ofms = [16, 21, 53, 58, 107, 107, 142, 160, 256, 256, 20]
+            else:
+                print("Unsupported number of classes for model type." +
+                      " Currently support exists for 5, 10, 15, and 20 classes. Terminating...")
+                exit(1)
+            with open(cfg.model_path + '/ofms.txt', 'w') as f:
+                for ofm in ofms:
+                    f.write("%s\n" % ofm)
+        model = mobilenet_rs_25layer(num_classes=cfg.num_classes, ofms=ofms)
+        
     elif cfg.model_type == 'googlenet':
         model = inc_v1.InceptionV1(include_top=True, weights='imagenet')
 

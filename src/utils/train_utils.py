@@ -499,7 +499,7 @@ def fit_model(model, num_classes, batch_size,
         wnid_labels, _ = load_imagenet_meta(os.path.join(imagenet_path, \
                                                          meta_path))
         # If resource-scalable model, create symbolic links and garbage class
-        if model_type == 'googlenet_rs' or model_type == 'mobilenet_rs':
+        if '_rs' in model_type:
             new_training_path = os.path.join(imagenet_path, symlink_prefix+"_TRAIN_")
             new_validation_path = os.path.join(imagenet_path, symlink_prefix+"_VAL_")
             selected_classes = create_garbage_links(num_classes, wnid_labels, train_img_path,

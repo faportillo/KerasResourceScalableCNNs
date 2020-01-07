@@ -10,7 +10,7 @@ sys.path.append("..")
     Need to be able to utilize MC Knapsack and automatically generate list of OFMs
     based on parameter count; a function of a lambda value and number of classes
 ****************************************************************************************************************'''
-lambda_val = 0.25
+lambda_val = 0.045
 
 '''****************************************************************************************************************
     STEP 1
@@ -75,7 +75,7 @@ VALID_TIME_MINUTE = 5
     If training: model_path = directory that will store the trained model weights and related files
     If validating/finetuning/pruning: model_path = directory where weights are saved.
 ****************************************************************************************************************'''
-model_path = './L5_25p_layer/'
+model_path = './MobileNet/L5_5p_layer/'
 tb_logpath= model_path + "/logs" # Directory for TensorBoard Log Files
 
 '''****************************************************************************************************************
@@ -123,9 +123,9 @@ schedule = 'polynomial'  # Supports 'polynomial' and 'constant' pruning
     Used to changed names of files when writing local and global accuracy to files
 ****************************************************************************************************************'''
 eval_weight_file = 'max_l_g_weights.npy'
-is_pruned = True  # True if evaluating a pruned model
+#eval_weight_file = 'rs_model_final.h5'
+is_pruned = False  # True if evaluating a pruned model
 is_finetuned = False  # True if evalauating a finetuned model
-
 
 '''****************************************************************************************************************
     Automatically set variables and safety checks. DO NOT TOUCH

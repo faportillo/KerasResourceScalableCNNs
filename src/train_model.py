@@ -19,6 +19,7 @@ import src.utils.train_utils as tu
 from src.GoogLeNet.googlenet_rs import googlenet_rs
 from src.MobileNet.mobilenet_rs import mobilenet_rs
 from src.MobileNet.mobilenet_rs_25layer import mobilenet_rs_25layer
+from src.MobileNet.mobilenet_rs_25width import mobilenet_rs_25width
 
 import src.GoogLeNet.VanillaGoogLeNet.inception_v1 as inc_v1
 from tensorflow.python.keras.applications.mobilenet import MobileNet
@@ -147,7 +148,21 @@ def train_model():
                 for ofm in ofms:
                     f.write("%s\n" % ofm)
         model = mobilenet_rs_25layer(num_classes=cfg.num_classes, ofms=ofms)
-        
+    
+    elif cfg.model_type == 'mobilenet_rs_width':
+        if path.exists(cfg.model_path + 'ofms.txt'):
+            ofms = []
+            with open(cfg.model_path + 'ofms.txt') as f:
+                for line in f:
+                    ofm = line[:-1]
+                    ofms.append(int(ofm))
+        else:
+            if cfg.num_classes == 5:
+                if cfg.lambda_val == 0.25:
+                    ofms = [32, 64, 128, 128, 256, 256, 512, 512, 1024, 1024, 5]
+                elif cfg.lambda_val == 0.045:
+                    ofms = [32, 64, 128, 128, 256, 256, 512, 512, 1024, 1024, 5]
+        model = mobilenet_rs_25width(num_classes=cfg.num_classes, ofms=ofms)
     elif cfg.model_type == 'googlenet':
         model = inc_v1.InceptionV1(include_top=True, weights='imagenet')
 

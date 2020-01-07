@@ -10,7 +10,7 @@ sys.path.append("..")
     Need to be able to utilize MC Knapsack and automatically generate list of OFMs
     based on parameter count; a function of a lambda value and number of classes
 ****************************************************************************************************************'''
-lambda_val = 0.25
+lambda_val = 0.045
 
 '''****************************************************************************************************************
     STEP 1
@@ -18,10 +18,10 @@ lambda_val = 0.25
         googlenet / googlenet_rs
         mobilenet / mobilenet_rs
 ****************************************************************************************************************'''
-model_type = 'mobilenet_rs_layer'
-machine_name = 'Instance1' # Name of machine for training, in case training on multiple machines
+model_type = 'mobilenet_rs_width'
+machine_name = 'Instance4' # Name of machine for training, in case training on multiple machines
 # Creates prefixes for symbolic links when creating training data, in case using shared file system to pull data
-symlnk_prfx = 'EVAL1_GARBAGE'
+symlnk_prfx = 'EVAL4GARBAGE'
 load_weights = False # Used if loading weights to resume training, in case it stops prematurely
 
 '''****************************************************************************************************************
@@ -75,7 +75,7 @@ VALID_TIME_MINUTE = 5
     If training: model_path = directory that will store the trained model weights and related files
     If validating/finetuning/pruning: model_path = directory where weights are saved.
 ****************************************************************************************************************'''
-model_path = './L5_25p_layer/'
+model_path = './MobileNet/L5_5p_width/'
 tb_logpath= model_path + "/logs" # Directory for TensorBoard Log Files
 
 '''****************************************************************************************************************
@@ -134,6 +134,6 @@ if model_type == 'googlenet' or model_type == 'mobilenet':
     image_size = 224
     num_classes = 1000  # HAS to be 1000 classes for vanilla model types
     do_orig_eval = False
-elif model_type == 'googlenet_rs' or model_type == 'mobilenet_rs' or model_type == 'mobilenet_rs_layer':
+elif 'rs' in model_type:
     image_size = 227
 

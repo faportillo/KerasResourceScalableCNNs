@@ -22,6 +22,8 @@ from src.GoogLeNet.googlenet_rs import googlenet_rs
 from src.MobileNet.mobilenet_rs import mobilenet_rs
 import src.GoogLeNet.VanillaGoogLeNet.inception_v1 as inc_v1
 from tensorflow.python.keras.applications.mobilenet import MobileNet
+from src.MobileNet.mobilenet_rs_25layer import mobilenet_rs_25layer
+
 
 from tensorflow.python.keras.optimizers import Adam, RMSprop
 from tensorflow.python.keras.backend import int_shape
@@ -67,6 +69,24 @@ def eval_model():
             exit(1)
         model = mobilenet_rs(num_classes=cfg.num_classes, ofms=ofms)
         model = tu.load_model_npy(model, cfg.model_path + cfg.eval_weight_file)
+    
+    elif cfg.model_type == 'mobilenet_rs_layer':
+        if path.exists(cfg.model_path + 'ofms.txt'):
+            ofms = []
+            with open(cfg.model_path + 'ofms.txt') as f:
+                for line in f:
+                    ofm = line[:-1]
+                    ofms.append(int(ofm))
+        else:
+            print("ERROR. Pruning this model type " +
+                  "requires an ofms.txt file. Make sure to train model first")
+            exit(1)
+        model = mobilenet_rs_25layer(num_classes=cfg.num_classes, ofms=ofms)
+        if '.npy' in cfg.eval_weight_file:
+            model = tu.load_model_npy(model, cfg.model_path + cfg.eval_weight_file)
+        elif '.h5' in cfg.eval_weight_file:
+            model = load_model(cfg.model_path + cfg.eval_weight_file)
+    
     elif cfg.model_type == 'googlenet':
         model = inc_v1.InceptionV1(include_top=True, weights='imagenet')
         if cfg.is_pruned:

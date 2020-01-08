@@ -588,7 +588,7 @@ def fit_model(model, num_classes, batch_size,
                                                 period=val_period)
     callback_list = [tb_callback, termNaN_callback, save_weights_std_callback]
 
-    if model_type is 'googlenet_rs' or model_type is 'mobilenet_rs':
+    if '_rs' in model_type:
         save_weights_callback = SaveWeightsNumpy(num_classes,
                                                     model, model_path,
                                                     period=val_period,

@@ -19,7 +19,12 @@ import src.utils.train_utils as tu
 from src.GoogLeNet.googlenet_rs import googlenet_rs
 from src.MobileNet.mobilenet_rs import mobilenet_rs
 from src.MobileNet.mobilenet_rs_25layer import mobilenet_rs_25layer
+<<<<<<< HEAD
 from src.MobileNet.mobilenet_rs_25width import mobilenet_rs_25width
+=======
+from src.MobileNet.mobilenet_rs_5layer import mobilenet_rs_5layer
+
+>>>>>>> d239dc4f4cc393c57552208f717bda26c8c17f1a
 
 import src.GoogLeNet.VanillaGoogLeNet.inception_v1 as inc_v1
 from tensorflow.python.keras.applications.mobilenet import MobileNet
@@ -124,7 +129,7 @@ def train_model():
                 if cfg.lambda_val == 0.25:
                     ofms = [32, 64, 128, 128, 256, 256, 512, 512, 512, 512, 5]
                 elif cfg.lambda_val == 0.045:
-                    ofms = [16, 21, 43, 43, 85, 85, 171, 128, 256, 256, 5]
+                    ofms = [32, 64, 128, 128, 256, 256, 512, 5]
             elif cfg.num_classes == 10:
                 if cfg.lambda_val == 0.25:
                     ofms = [32, 64, 116, 116, 197, 197, 213, 301, 569, 569, 10]
@@ -147,7 +152,10 @@ def train_model():
             with open(cfg.model_path + '/ofms.txt', 'w') as f:
                 for ofm in ofms:
                     f.write("%s\n" % ofm)
-        model = mobilenet_rs_25layer(num_classes=cfg.num_classes, ofms=ofms)
+        if cfg.lambda_val == 0.25:
+            model = mobilenet_rs_25layer(num_classes=cfg.num_classes, ofms=ofms)
+        elif cfg.lambda_val == 0.045:
+            model = mobilenet_rs_5layer(num_classes=cfg.num_classes, ofms=ofms)
     
     elif cfg.model_type == 'mobilenet_rs_width':
         if path.exists(cfg.model_path + 'ofms.txt'):
@@ -163,6 +171,7 @@ def train_model():
                 elif cfg.lambda_val == 0.045:
                     ofms = [32, 64, 128, 128, 256, 256, 512, 512, 1024, 1024, 5]
         model = mobilenet_rs_25width(num_classes=cfg.num_classes, ofms=ofms)
+
     elif cfg.model_type == 'googlenet':
         model = inc_v1.InceptionV1(include_top=True, weights='imagenet')
 

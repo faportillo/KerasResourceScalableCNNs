@@ -37,8 +37,8 @@ from tensorflow.python.ops import clip_ops
 '''
     Define MobileNet Model
 '''
-def mobilenet_rs_25layer(ofms, num_classes=1000, alpha=1, rho=1):
-    assert len(ofms) == 11, "Number of ofms doesn't match model structure for Mobilenet"
+def mobilenet_rs_5layer(ofms, num_classes=1000, alpha=1, rho=1):
+    assert len(ofms) == 8, "Number of ofms doesn't match model structure for Mobilenet"
     '''
         X : input
         num_classes : number of desired classes for training    '''
@@ -92,7 +92,7 @@ def mobilenet_rs_25layer(ofms, num_classes=1000, alpha=1, rho=1):
     x = Activation('relu')(x)
 
     # # Macrolayer 8
-    for _ in range(3):
+    '''for _ in range(3):
         x = DepthwiseConv2D((3, 3), strides=(1, 1), padding='same', use_bias=False)(x)
         x = BatchNormalization()(x)
         x = Activation('relu')(x)
@@ -101,7 +101,7 @@ def mobilenet_rs_25layer(ofms, num_classes=1000, alpha=1, rho=1):
         x = Activation('relu')(x)
 
     # Macrolayer 9
-    '''x = DepthwiseConv2D((3, 3), strides=(2, 2), padding='same', use_bias=False)(x)
+    x = DepthwiseConv2D((3, 3), strides=(2, 2), padding='same', use_bias=False)(x)
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
     x = Convolution2D(int(ofms[8] * alpha), (1, 1), strides=(1, 1), padding='same', use_bias=False)(x)

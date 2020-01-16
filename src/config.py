@@ -18,18 +18,18 @@ lambda_val = 0.045
         googlenet / googlenet_rs
         mobilenet / mobilenet_rs
 ****************************************************************************************************************'''
-model_type = 'mobilenet_rs_width'
+model_type = 'googlenet'
 machine_name = 'Instance4' # Name of machine for training, in case training on multiple machines
 # Creates prefixes for symbolic links when creating training data, in case using shared file system to pull data
-symlnk_prfx = 'EVAL4GARBAGE'
+symlnk_prfx = 'EVAL1GARBAGE'
 load_weights = False # Used if loading weights to resume training, in case it stops prematurely
 
 '''****************************************************************************************************************
     STEP 2
     Booleans to determine what you want to do with the model
 ****************************************************************************************************************'''
-model_train = True
-model_eval = False
+model_train = False
+model_eval = True
 model_prune = False
 model_finetune = False
 model_quantize = False
@@ -75,11 +75,7 @@ VALID_TIME_MINUTE = 5
     If training: model_path = directory that will store the trained model weights and related files
     If validating/finetuning/pruning: model_path = directory where weights are saved.
 ****************************************************************************************************************'''
-<<<<<<< HEAD
-model_path = './MobileNet/L5_5p_width/'
-=======
-model_path = './MobileNet/L5_5p_layer/'
->>>>>>> d239dc4f4cc393c57552208f717bda26c8c17f1a
+model_path = './vgn_10_v2/'
 tb_logpath= model_path + "/logs" # Directory for TensorBoard Log Files
 
 '''****************************************************************************************************************

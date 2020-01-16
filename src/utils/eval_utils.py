@@ -216,6 +216,17 @@ def get_global_accuracy(model,
     correct_global_imgs = 0
     correct_raw_imgs = 0
     garb_count = 0
+    # Get list of indices that are in scope of interest.
+    # Useful for eval of non-rs models
+    selected_dirs_arr = []
+    for folder in all_dirs:
+        if selected_dirs_file is not None:
+            #print("Folder: " + str(folder))
+            if folder in selected_dirs:
+                if not is_rs_model:
+                    selected_dirs_arr.append(int(get_key(folder, wnid_dict)))
+        else:
+            break
 
     for folder in all_dirs:
         correct_index = 0
@@ -233,18 +244,18 @@ def get_global_accuracy(model,
                 else:
                     correct_index = int(get_key(folder, wnid_dict))
                 global_index = 0
-            else:
+            '''else:
                 if is_rs_model:
                     correct_index = 0 #selected_dirs.index(folder)
                 else:
                     correct_index = int(get_key(folder, wnid_dict))
-                global_index = 0
+                global_index = 0'''
                 #continue
             #print(correct_index)
         else:
             print("Folder: " + str(folder))
             correct_index = int(get_key(folder, wnid_dict))
-            global_index = -1
+            global_index = 0
         #print(correct_index)
 
         p = os.path.join(val_img_path, folder)
@@ -282,15 +293,24 @@ def get_global_accuracy(model,
                 if raw_acc and (np.argmax(pred[0]) == correct_index):
                     correct_raw_imgs += 1
             elif not isinstance(pred, list) and len(pred.shape) == 2:
+                print("Output: ")
                 print(np.argmax(pred))
+                print(correct_index)
+                print(global_index)
                 total_imgs += 1
-
-                if np.argmax(pred) > 0:
-                    pred_class = 1
+                if is_rs_model:
+                    if np.argmax(pred) > 0:
+                        pred_class = 1
+                    else:
+                        pred_class = 0
+                    if pred_class == global_index:
+                        correct_global_imgs += 1
                 else:
-                    pred_class = 0
-                if pred_class == global_index:
-                    correct_global_imgs += 1
+                    print(selected_dirs_arr)
+                    if np.argmax(pred) in selected_dirs_arr and global_index == 1:
+                        correct_global_imgs += 1
+                    elif np.argmax(pred) not in selected_dirs_arr and global_index == 0:
+                        correct_global_imgs += 1
 
                 if raw_acc and (np.argmax(pred) == correct_index):
                     correct_raw_imgs += 1

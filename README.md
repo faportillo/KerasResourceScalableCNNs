@@ -48,7 +48,8 @@ This methodology was implemented on GoogLeNet and MobileNet. The resulting table
 
 Results: Baseline (Unscaled models vs Depth-Scaled Models)
 
-![enter image description here](https://drive.google.com/uc?export=view&id=1AysGWr_PEfmHL5Qtmkop9Yj1nt7XDl1s )
+![enter image description here](https://drive.google.com/uc?export=view&id=1AysGWr_PEfmHL5Qtmkop9Yj1nt7XDl1s
+)
 
 ---
 **Integration/Comparison with existing model compression methods (Pruning and Quantization):**

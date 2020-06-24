@@ -40,9 +40,11 @@ This methodology was implemented on GoogLeNet and MobileNet. The resulting table
 )
  
 
+
  - [MobileNet](https://arxiv.org/abs/1704.04861)
 ![enter image description here](https://drive.google.com/uc?export=view&id=1YVyfnma7K-EpMxcjIZBGbxkA2Lysx8jf
 )
+
 
 Results: Baseline (Unscaled models vs Depth-Scaled Models)
 

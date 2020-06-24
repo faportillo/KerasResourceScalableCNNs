@@ -27,7 +27,8 @@ Reduces size of model to fit a desired parameter count by scaling the depth of e
 Uses what we call "Scope-Aware Inference" to also determine if an input image belongs to the set of images the model was trained to classify (i.e. identify items as miscellaneous)
 
 **Process**:
-![enter image description here](https://drive.google.com/uc?export=view&id=19KdP9hHF03PK_VYojeqh_KV7K3C_-RFR)
+![enter image description here](https://drive.google.com/uc?export=view&id=19KdP9hHF03PK_VYojeqh_KV7K3C_-RFR
+)
 
 ---
 
@@ -35,21 +36,26 @@ Uses what we call "Scope-Aware Inference" to also determine if an input image be
 This methodology was implemented on GoogLeNet and MobileNet. The resulting table shows a comparison with Ψ and Ψ' for multiple numbers of classes.
 
  - [GoogLeNet](https://arxiv.org/abs/1409.4842)
-![enter image description here](https://drive.google.com/uc?export=view&id=1W4XVg4CgJp25sZ3hwreJ_D8Xu0GVCuaX)
+![enter image description here](https://drive.google.com/uc?export=view&id=1W4XVg4CgJp25sZ3hwreJ_D8Xu0GVCuaX
+)
  
 
  - [MobileNet](https://arxiv.org/abs/1704.04861)
-![enter image description here](https://drive.google.com/uc?export=view&id=1YVyfnma7K-EpMxcjIZBGbxkA2Lysx8jf)
+![enter image description here](https://drive.google.com/uc?export=view&id=1YVyfnma7K-EpMxcjIZBGbxkA2Lysx8jf
+)
 
 Results: Baseline (Unscaled models vs Depth-Scaled Models)
-![enter image description here](https://drive.google.com/uc?export=view&id=1AysGWr_PEfmHL5Qtmkop9Yj1nt7XDl1s)
+![enter image description here](https://drive.google.com/uc?export=view&id=1AysGWr_PEfmHL5Qtmkop9Yj1nt7XDl1s
+)
 
 ---
 **Integration/Comparison with existing model compression methods (Pruning and Quantization):**
 
 The results scaled models are then further reduced using the following process:
-![enter image description here](https://drive.google.com/uc?export=view&id=1-xIBUvw_WRX6xOtEhce-1KIn7hyLeUDi)
+![enter image description here](https://drive.google.com/uc?export=view&id=1-xIBUvw_WRX6xOtEhce-1KIn7hyLeUDi
+)
 
 The results are as follows:
-![enter image description here](https://drive.google.com/uc?export=view&id=1RLsyv2D_L3mlSwv8oLxmtDGP-RKP_j-I)
+![enter image description here](https://drive.google.com/uc?export=view&id=1RLsyv2D_L3mlSwv8oLxmtDGP-RKP_j-I
+)
 
